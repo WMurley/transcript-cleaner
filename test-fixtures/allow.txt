@@ -1,0 +1,3 @@
+# Names that are fine to keep: your own name, colleagues, public figures. One per line.
+Morgan Reyes
+Simon Sinek

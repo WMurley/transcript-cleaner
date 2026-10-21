@@ -1,0 +1,13 @@
+{
+  "description":"Eight additional invented cases written after the fixes. Evaluate once without tuning engine rules to these results. This is a separate, small holdout, not a population accuracy estimate.",
+  "cases":[
+    {"id":"holdout-punctuation", "category":"known matching", "text":"Jean‑Luc D’Arcy: Costs rose by 8 percent. Morgan Reyes: Delivery is due Friday.", "people":[{"name":"Jean-Luc D'Arcy"}], "hide":[{"kind":"person","text":"Jean‑Luc D’Arcy"},{"kind":"person","text":"D’Arcy"}], "keep":["Costs rose by 8 percent.","Delivery is due Friday."]},
+    {"id":"holdout-vtt-class", "category":"formats", "file":"holdout.vtt", "text":"WEBVTT\n\n00:00:02.000 --> 00:00:05.000\n<v.call Tavi Xelquorin>Delivery is due Friday.</v>\n<v Morgan Reyes>Scope approved.</v>", "hide":[{"kind":"person","text":"Tavi Xelquorin"},{"kind":"person","text":"Xelquorin"}], "keep":["00:00:02.000 --> 00:00:05.000","Delivery is due Friday.","Scope approved."]},
+    {"id":"holdout-phone-country", "category":"contacts", "text":"Morgan Reyes: Telephone: +61 490 163 222 extension 97. Delivery is due Friday.", "hide":[{"kind":"contact","text":"+61 490 163 222"},{"kind":"contact","text":"97"}], "keep":["Delivery is due Friday."]},
+    {"id":"holdout-numeric-meaning", "category":"meaning", "text":"Morgan Reyes: Invoice number 4599288815. Revenue is $48,000. Target date is 2026-10-03. Delivery is due Friday.", "hide":[], "keep":["Invoice number 4599288815.","Revenue is $48,000.","Target date is 2026-10-03.","Delivery is due Friday."]},
+    {"id":"holdout-two-phones", "category":"contacts", "text":"Morgan Reyes: Call me at +44 1632 960456 or phone 4599287714. Delivery is due Friday.", "hide":[{"kind":"contact","text":"+44 1632 960456"},{"kind":"contact","text":"4599287714"}], "keep":["Delivery is due Friday."]},
+    {"id":"holdout-tools", "category":"meaning", "text":"Morgan Reyes: We use Signal. Our CRM is Notion. Delivery is due Friday.", "hide":[], "keep":["We use Signal.","Our CRM is Notion.","Delivery is due Friday."]},
+    {"id":"holdout-email-punctuation", "category":"contacts", "text":"Morgan Reyes: Send notes to fin'ops+demo@larkspur.example. Delivery is due Friday.", "hide":[{"kind":"contact","text":"fin'ops+demo@larkspur.example"},{"kind":"contact","text":"fin'"}], "keep":["Delivery is due Friday."]},
+    {"id":"holdout-lowercase-person", "category":"detector challenge", "text":"Morgan Reyes: we agreed with tavi xelquorin that intake takes twelve minutes. Delivery is due Friday.", "hide":[{"kind":"person","text":"tavi xelquorin"},{"kind":"person","text":"tavi"},{"kind":"person","text":"xelquorin"}], "keep":["intake takes twelve minutes.","Delivery is due Friday."]}
+  ]
+}

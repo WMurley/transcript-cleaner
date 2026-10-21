@@ -1,0 +1,24 @@
+# Python environment and caches
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+
+# Never commit calls, client lists or app state
+ClientVault*/
+TranscriptCleaner-Vault/
+_practice/
+themes/
+app.ico
+
+# Test and audit output
+_*/
+_old-*/
+
+# Double-click setup: private uv, Python and caches, and its log
+.tools/
+setup.log
+
+# Local pointer to a browser helper for the tests (machine-specific)
+.browser-helper
+/Transcript Cleaner.app/

@@ -1,0 +1,1841 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transcript Cleaner</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+:root {
+  /* four clearly separate layers: page < card < inset, plus a stronger edge for anything you can click or type in */
+  --bg: #e8ebf0; --panel: #ffffff; --panel-2: #f1f3f7; --line: #d2d7df; --line-strong: #9ea6b3; --text: #161a1f; --muted: #47505c;
+  --accent: #2563d9; --accent-soft: #e3ecfc; --green: #136b43; --green-soft: #dcf2e6; --amber: #7d5106;
+  --amber-soft: #fbecd0; --red: #a8332a; --red-soft: #fbe6e3; --mark: #ffe17a; --shadow: 0 1px 2px rgba(16,24,40,.08), 0 3px 10px rgba(16,24,40,.06);
+  --link: color-mix(in srgb, var(--accent-fg) 70%, var(--text));
+  --accent-fg: var(--accent); --accent-edge: var(--accent); --line-soft: var(--line);
+  --radius: 10px; --radius-btn: 8px; --radius-input: 8px; --accent-text: #ffffff;
+  --heading-weight: 650; --tracking: normal; --h1-size: 22px; --row-pad: 11px; --pad-card: 18px; --gap: 20px;
+  --btn-weight: 500; --btn-pad: 7px 14px; --label-transform: none; --label-tracking: normal;
+  --shadow-float: 0 20px 60px rgba(0,0,0,.25);
+  --font-body: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: var(--font-body); --font-reading: var(--font-body);
+  font-family: var(--font-body); color-scheme: light;
+}
+/* dark: chosen in the sidebar, or "Auto" while the computer is in dark mode */
+:root[data-mode="dark"] { --bg: #090b0e; --panel: #171b21; --panel-2: #20252d; --line: #353d49; --line-strong: #5d6878; --text: #edf0f4; --muted: #b4bcc7;
+  --accent: #6ea0ff; --accent-soft: #1d2b44; --accent-text: #0b1220; --green: #4cc38a; --green-soft: #15302a; --amber: #e3a646;
+  --amber-soft: #352914; --red: #ef7a70; --red-soft: #3a1f1d; --mark: #6b5a17; --shadow: none; color-scheme: dark; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mode="light"]) { --bg: #090b0e; --panel: #171b21; --panel-2: #20252d; --line: #353d49; --line-strong: #5d6878; --text: #edf0f4; --muted: #b4bcc7;
+    --accent: #6ea0ff; --accent-soft: #1d2b44; --accent-text: #0b1220; --green: #4cc38a; --green-soft: #15302a; --amber: #e3a646;
+    --amber-soft: #352914; --red: #ef7a70; --red-soft: #3a1f1d; --mark: #6b5a17; --shadow: none; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-size: 14px; font-family: var(--font-body); letter-spacing: var(--tracking); }
+h1, h2, .rcard .who, .theme-card .tname { font-weight: var(--heading-weight); letter-spacing: normal; }
+pre.doc, .code, input, textarea { letter-spacing: normal; }
+.colhead, .rcard .kind, .list-tools > .tag, .answers .tag { text-transform: var(--label-transform); letter-spacing: var(--label-tracking); }
+h1, h2, .brand, .rcard .who, .theme-card .tname { font-family: var(--font-heading); }
+button, input, select, textarea { font: inherit; color: inherit; }
+.app { display: grid; grid-template-columns: 232px 1fr; height: 100vh; }
+aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 18px 12px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; font-weight: 650; font-size: 15px; }
+.brand svg { color: var(--accent-fg); }
+nav button { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 9px 10px;
+  border-radius: 8px; cursor: pointer; color: var(--muted); text-align: left; }
+nav button:hover { background: var(--panel-2); color: var(--text); }
+nav button.on { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+nav button.on svg { color: var(--accent-fg); }
+nav .count { margin-left: auto; font-size: 12px; background: var(--panel-2); color: var(--muted); border-radius: 999px; padding: 1px 8px; }
+nav button.on .count { background: var(--panel); }
+nav .count.alert { background: var(--amber-soft); color: var(--amber); font-weight: 600; }
+.local { margin-top: auto; font-size: 12px; color: var(--muted); display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); line-height: 1.4; }
+main { overflow: auto; padding: 26px 32px 60px; }
+h1 { font-size: var(--h1-size); margin: 0 0 4px; line-height: 1.15; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.drop { border: 2px dashed var(--line-strong); border-radius: var(--radius); padding: 26px; text-align: center; background: var(--panel);
+  transition: border-color .15s, background .15s; margin-bottom: 20px; }
+.drop.over { border-color: var(--accent-edge); background: var(--accent-soft); }
+.drop strong { display: block; font-size: 15px; margin-bottom: 4px; }
+.drop .muted { margin-bottom: 12px; }
+.export-destination {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;margin-bottom:20px}
+.export-destination.needs-setup {background:var(--amber-soft);border-color:color-mix(in srgb,var(--amber) 40%,var(--line))}
+.dest-icon {flex:none;width:42px;height:42px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--link)}
+.needs-setup .dest-icon, .needs-setup .chip {background:var(--panel);color:var(--amber)}
+.export-destination .destination-info {min-width:0;flex:1}
+.export-destination h2 {font-size:15px;margin:0 0 7px}
+.export-destination .export-path {font-size:13px;overflow-wrap:anywhere;line-height:1.5}
+.export-destination .hint {margin-top:7px;line-height:1.5}
+.export-destination .actions {flex:none}
+.sample-preview {max-width:760px;margin:16px auto 0;text-align:center}
+.sample-preview summary {cursor:pointer;color:var(--muted);display:inline-block;padding:4px 8px;border-radius:6px}
+.sample-preview summary:hover {color:var(--text);background:var(--panel-2)}
+.sample-preview summary::-webkit-details-marker {display:none}
+.sample-preview summary::before {content:"\25B8";display:inline-block;margin-right:6px;transition:transform .15s}
+.sample-preview[open] summary::before {transform:rotate(90deg)}
+@media (prefers-reduced-motion: reduce) { .sample-preview summary::before {transition:none} }
+.sample-preview pre.doc {text-align:left}
+.sample-preview pre.doc {margin-top:10px;height:auto;min-height:0;max-height:240px}
+.workspace-banner {margin-bottom:20px}
+@media(max-width:700px){.export-destination{align-items:stretch;flex-direction:column;gap:12px}.export-destination .actions{align-self:flex-start}}
+.muted { color: var(--muted); }
+.btn { border: 1px solid var(--line-strong); background: var(--panel); padding: var(--btn-pad); font-weight: var(--btn-weight); border-radius: var(--radius-btn); cursor: pointer; white-space: nowrap; text-decoration: none; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--panel-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent-edge); color: var(--accent-text); }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn.danger { color: var(--red); border-color: var(--red-soft); }
+.rename-form { display: flex; gap: 6px; align-items: center; }
+.rename-form input { flex: 1; min-width: 0; padding: 4px 10px; }
+.icon-btn.small-trash { width: 28px; height: 28px; font-size: 14px; display: inline-grid; place-items: center; }
+.icon-btn.row-act { width: 28px; height: 28px; display: inline-grid; place-items: center; flex: none; }
+.icon-btn.row-act[data-rename]:hover { color: var(--accent-fg); background: var(--accent-soft); }
+.icon-btn.small-trash:hover { color: var(--red); background: var(--red-soft); }
+.dl { align-items: center; }
+.btn.danger:hover { background: var(--red-soft); }
+.btn:disabled { opacity: .55; cursor: default; }
+.row-list { display: flex; flex-direction: column; }
+.row { display: grid; align-items: center; gap: 14px; padding: var(--row-pad) 16px; border-top: 1px solid var(--line-soft); cursor: pointer; }
+.row:first-child { border-top: 0; }
+.row:hover { background: var(--panel-2); }
+.row.sel { background: var(--accent-soft); }
+.calls .row, .calls .colhead { grid-template-columns: minmax(150px, 1.5fr) 124px minmax(90px, 1.2fr) 272px; }
+.when { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; font-weight: 400; }
+.calls .row .name { display: block; }
+.calls.compact .row, .calls.compact .colhead { grid-template-columns: minmax(130px, 1.4fr) 132px minmax(80px, 1fr); }
+.calls.compact .row > :nth-child(4), .calls.compact .colhead > :nth-child(4) { display: none; }
+@media (max-width: 1000px) { .calls .row, .calls .colhead { grid-template-columns: minmax(130px, 1.5fr) 124px minmax(80px, 1fr) 152px; } .dl .txt { display: none; } }
+.dl { display: flex; gap: 6px; }
+.code.person { font-variant-numeric: normal; color: var(--text); background: var(--panel-2); }
+.list-tools { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 8px; }
+.people .row, .people .colhead { grid-template-columns: 64px minmax(130px, 1.3fr) minmax(110px, 1fr) 44px; }
+.cos .row, .cos .colhead { grid-template-columns: 64px minmax(150px, 1.6fr) 60px 44px; }
+.row .name { font-weight: 550; line-height: 1.35; min-width: 0; }
+.calls .row .name { overflow-wrap: anywhere; }
+.row > span { min-width: 0; }
+.panel h2 { font-size: 15px; overflow-wrap: anywhere; }
+.colhead { display: grid; gap: 14px; padding: 10px 16px; font-size: 12.5px; font-weight: 600; color: var(--muted); background: var(--panel-2); border-bottom: 1px solid var(--line); border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0; }
+.row .btn, .row .icon-btn { border-color: transparent; background: transparent; }
+.row .btn { color: var(--link); font-weight: 600; }
+.row .btn:hover, .row .icon-btn:hover { background: var(--panel); border-color: var(--line-strong); }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: var(--panel-2); white-space: nowrap; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+.chip.clean { background: var(--green-soft); color: var(--green); } .chip.clean .dot { background: var(--green); }
+.chip.held { background: var(--amber-soft); color: var(--amber); } .chip.held .dot { background: var(--amber); }
+.code { font-variant-numeric: tabular-nums; font-size: 12px; padding: 1px 7px; border-radius: 6px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+.codes { display: flex; gap: 6px; flex-wrap: wrap; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.panel { padding: var(--pad-card); }
+.panel h2 { font-size: 16px; margin: 0 0 4px; }
+.seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; color: var(--muted); }
+.seg button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-weight: 550; }
+pre.doc { white-space: pre-wrap; word-wrap: break-word; font: 13px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  background: var(--panel-2); border-radius: 8px; padding: 14px; margin: 12px 0 0; height: 52vh; overflow: auto; }
+.note.approve-row { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.restore-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.restore-grid textarea { width: 100%; min-height: 280px; margin-top: 10px; font-family: var(--font-reading); font-size: 15px; line-height: 1.6; }
+.restore-out { min-height: 280px; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-input); background: var(--panel-2);
+  white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-reading); font-size: 15px; line-height: 1.6; }
+.restore-out.empty-out { color: var(--muted); }
+.restore-out mark { border-radius: 3px; padding: 0 2px; color: var(--text); }
+.restore-out mark.rs-restored { background: var(--green-soft); box-shadow: inset 0 -2px 0 var(--green); }
+#team-text { width: 100%; }
+.team-preview { margin-top: 12px; }
+.team-st { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.team-st.st-new { color: var(--green); }
+.team-st.st-have { color: var(--muted); }
+.team-st.st-client { color: var(--amber); }
+.restore-out mark.rs-unknown, .restore-out mark.rs-hidden { background: var(--amber-soft); box-shadow: inset 0 -2px 0 var(--amber); }
+.agent-note { font-family: var(--font-reading); color: var(--text); }
+@media (max-width: 1000px) { .restore-grid { grid-template-columns: minmax(0, 1fr); } }
+.rv .head .btn { flex: none; }
+.rv-owner { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 16px; }
+.rv-owner input { min-width: 240px; }
+.rv-list, .rv-once { padding: 0; overflow: hidden; }
+.rv-once { margin-top: 16px; }
+.rv-once > summary { cursor: pointer; padding: 14px 18px; font-weight: 600; background: var(--panel-2); }
+.rv-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 14px 18px; border-top: 1px solid var(--line-soft); }
+.rv-list .rv-row:first-child { border-top: 0; }
+.rv-call { margin-bottom: 16px; }
+.rv-call-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.rv-call-head .hint { display: block; margin-top: 2px; }
+.rv-call-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.rv-call-count { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.rv-call-head + .rv-row { border-top: 0; }
+.rv-progress { margin: 0 0 16px; padding: 14px 18px; }
+.rv-progress-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+.rv-progress-top b { font-size: 17px; color: var(--text); }
+.rv-progress-top span { color: var(--muted); font-size: 14px; }
+.rv-bar { height: 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+.rv-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--green); transition: width .45s ease; }
+@media (prefers-reduced-motion: reduce) { .rv-bar > span { transition: none; } }
+.rv-row.editing { background: var(--panel-2); }
+.rv-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15.5px; }
+.rv-name .chip { font-size: 12.5px; }
+.chip.rv-speaker { background: var(--accent-soft); color: var(--text); }
+.chip.k-tool { background: var(--panel-2); color: var(--text); } .chip.k-tool .dot { background: var(--muted); }
+.rv-meta { margin-top: 3px; font-size: 13px; color: var(--muted); }
+.rv-meta .code { font-size: 12px; }
+.rv-where { padding: 0; font-size: 13px; }
+.rv-actions { justify-content: flex-end; }
+.rv-context, .rv-edit { grid-column: 1 / -1; }
+.rv-context .excerpt { margin-top: 4px; }
+.rv-edit .identity-editor { margin-top: 4px; }
+.status-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rv-tag { border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent); background: var(--amber-soft); color: var(--amber); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.rv-tag:hover { border-color: var(--amber); }
+.rv-tag:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+@media (max-width: 900px) { .rv-row { grid-template-columns: minmax(0, 1fr); } .rv-actions { justify-content: flex-start; } }
+.suggest-card { margin-bottom: 20px; }
+.sg-list { display: flex; flex-direction: column; margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius-input); }
+.sg-row { display: grid; grid-template-columns: 20px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: end; padding: 10px 12px; border-top: 1px solid var(--line-soft); }
+.sg-row:first-child { border-top: 0; }
+.sg-row > input[type=checkbox] { width: 16px; height: 16px; margin-bottom: 10px; accent-color: var(--accent-fg); }
+.sg-row input:not([type=checkbox]) { width: 100%; }
+.sg-email { font-size: 13px; color: var(--muted); padding-bottom: 9px; overflow-wrap: anywhere; }
+.bulk-table { margin-top: 14px; border: 1px solid var(--line); border-radius: var(--radius-input); }
+.bulk-row { display: grid; grid-template-columns: 20px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, .9fr) 120px; gap: 12px; align-items: center;
+  padding: 9px 12px; border-top: 1px solid var(--line-soft); flex-direction: row; color: var(--text); font-size: 13.5px; }
+.bulk-row:first-child { border-top: 0; }
+.bulk-head { background: var(--panel-2); font-size: 12.5px; font-weight: 600; color: var(--muted); border-radius: var(--radius-input) var(--radius-input) 0 0; }
+.bulk-row input { width: 16px; height: 16px; accent-color: var(--accent-fg); }
+.bulk-row > span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .sg-row { grid-template-columns: 20px minmax(0, 1fr); } .sg-row > :nth-child(n+3) { grid-column: 2; }
+  .bulk-row { grid-template-columns: 20px minmax(0, 1fr) 110px; } .bulk-row > :nth-child(3), .bulk-row > :nth-child(4), .bulk-row > :nth-child(5) { display: none; } }
+.final-check { margin-top: 12px; padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.final-check.ok { background: var(--green-soft); border-color: color-mix(in srgb, var(--green) 35%, var(--line)); }
+.fc-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.fc-title { font-size: 17px; }
+.fc-sub { color: var(--text); font-size: 14px; }
+.fc-q { font-size: 16px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.fc-label { margin-top: 8px; font-size: 13px; color: var(--muted); }
+.fc-row { padding: 14px 0; border-top: 1px solid var(--line-soft); }
+.fc-row:first-of-type { border-top: 0; }
+.fc-ctx { font-family: var(--font-reading); font-size: 15px; line-height: 1.6; margin: 4px 0 10px; padding: 6px 0 6px 12px; border-left: 3px solid var(--line-strong); color: var(--text); overflow-wrap: anywhere; }
+.fc-ctx mark { background: var(--mark); color: var(--text); border-radius: 3px; padding: 0 3px; font-weight: 600; }
+.tok { background: var(--accent-soft); color: var(--accent-fg); border-radius: 4px; padding: 0 3px; font-weight: 600; }
+.note { font-size: 13px; padding: 10px 12px; border-radius: 8px; background: var(--panel-2); margin-top: 12px; line-height: 1.5; }
+.note.warn { background: var(--amber-soft); color: var(--amber); }
+.note.bad { background: var(--red-soft); color: var(--red); }
+/* needs you: one column, one question per card, read top to bottom. Larger type and stronger contrast than the
+   rest of the app, because this is where people read most closely. */
+.ny { max-width: 920px; }
+.ny, .identity-editor { --ny-soft: color-mix(in srgb, var(--text) 78%, var(--panel)); --ny-link: color-mix(in srgb, var(--accent-fg) 62%, var(--text)); }
+.ny .sub { color: var(--ny-soft); font-size: 14.5px; }
+.review { display: flex; flex-direction: column; gap: 18px; }
+.rcard { padding: 24px 26px 22px; }
+.q-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.q-where { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ny-soft); min-width: 0; overflow-wrap: anywhere; }
+.q-where svg, .gc-file svg { flex: none; }
+.chip.k-person { background: var(--accent-soft); color: var(--text); } .chip.k-person .dot { background: var(--accent-fg); }
+.chip.k-company { background: var(--green-soft); color: var(--text); } .chip.k-company .dot { background: var(--green); }
+.chip.k-which { background: var(--amber-soft); color: var(--text); } .chip.k-which .dot { background: var(--amber); }
+.rcard .chip { font-size: 13px; font-weight: 600; }
+.rcard .who { font-size: 22px; line-height: 1.25; margin: 0; overflow-wrap: anywhere; }
+.q-note { margin: 6px 0 0; color: var(--ny-soft); font-size: 14.5px; line-height: 1.5; }
+.excerpt { font-family: var(--font-reading); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 18px; margin-top: 16px; font-size: 16px; line-height: 1.6; color: var(--text); }
+.ex-line { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 14px; padding: 5px 0; color: var(--ny-soft); }
+.excerpt.no-time .ex-line { grid-template-columns: minmax(0, 1fr); }
+.ex-line.hit { color: var(--text); }
+.ex-time { font-size: 13px; font-variant-numeric: tabular-nums; padding-top: 3px; white-space: nowrap; color: var(--ny-soft); }
+.ex-body { min-width: 0; overflow-wrap: anywhere; }
+.ex-speaker { font-weight: 650; margin-right: 8px; color: var(--text); }
+.rcard mark { background: var(--mark); color: var(--mark-text, var(--text)); border-radius: 4px; padding: 1px 4px; font-weight: 650; }
+.link-btn { border: 0; background: none; padding: 10px 2px 0; color: var(--ny-link); cursor: pointer; font-size: 14px; font-weight: 600; }
+.link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+.choices { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+.choices-head, .choice { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 4px 24px; }
+.choices-head { padding: 0 18px; font-size: 13px; font-weight: 600; color: var(--ny-soft); }
+.choice { position: relative; align-items: center; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  border-radius: var(--radius); padding: 14px 18px; cursor: pointer; transition: background .12s, border-color .12s; }
+.choice:hover { background: var(--panel-2); border-color: color-mix(in srgb, var(--accent-edge) 50%, var(--line)); }
+.choice.primary { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent-edge) 60%, var(--line)); }
+.choice.primary:hover { border-color: var(--accent-edge); }
+.choice:focus-visible, .ie-option:focus-within, .seg-radio label:focus-within, .ie-more summary:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+.choice-title { display: block; font-weight: 650; font-size: 16px; }
+.choice-desc { display: block; margin-top: 3px; font-size: 14px; color: var(--ny-soft); line-height: 1.45; }
+.choice-preview { font-family: var(--font-reading); font-size: 14.5px; line-height: 1.5; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.rcard .tok, .ie-preview .tok { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); background: color-mix(in srgb, var(--accent-edge) 16%, var(--panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-edge) 55%, transparent); }
+.kept { font-weight: 650; text-decoration: underline; text-decoration-color: var(--green); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ny-progress { display: flex; align-items: center; gap: 12px; margin: -8px 0 18px; font-size: 14px; color: var(--ny-soft); }
+.ny-bar { width: 160px; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.ny-bar i { display: block; height: 100%; background: var(--green); border-radius: inherit; transition: width .3s; }
+.ny-caution { margin-top: 12px; font-size: 13.5px; color: var(--ny-soft); }
+@media (prefers-reduced-motion: reduce) { .choice, .ny-bar i { transition: none; } }
+@media (max-width: 720px) { .choice { grid-template-columns: minmax(0, 1fr); } .choices-head { display: none; } .rcard { padding: 18px 16px; } .ex-line { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+/* the answer form, inside the card */
+.identity-editor { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 20px; display: flex; flex-direction: column; gap: 16px; font-size: 14px; }
+.identity-editor label { min-width: 0; color: var(--ny-soft, var(--muted)); font-size: 13.5px; font-weight: 550; }
+.identity-editor input:not([type=radio]):not([type=checkbox]), .identity-editor select { width: 100%; min-width: 0; font-size: 14.5px; color: var(--text); }
+.identity-editor .full { grid-column: 1 / -1; }
+.identity-editor .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.identity-editor .hint { font-size: 13px; color: var(--ny-soft, var(--muted)); font-weight: 400; }
+.ie-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ie-label { font-size: 13.5px; font-weight: 650; color: var(--text); min-width: 56px; }
+.seg-radio { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg-radio label { flex-direction: row; cursor: pointer; border-radius: 6px; position: relative; }
+.seg-radio input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg-radio span { padding: 6px 16px; border-radius: 6px; color: var(--ny-soft, var(--muted)); font-size: 14px; font-weight: 550; }
+.seg-radio label:hover span { color: var(--text); }
+.seg-radio input:checked + span { background: var(--panel); color: var(--text); box-shadow: var(--shadow), 0 0 0 1px var(--line); font-weight: 650; }
+.ie-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.ie-options.single .ie-option input { display: none; }
+.ie-option { flex-direction: row !important; align-items: flex-start; gap: 10px; padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius-input); cursor: pointer; color: var(--text) !important; }
+.ie-option:hover { background: var(--panel-2); }
+.ie-option.on { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent-edge) 60%, var(--line)); }
+.ie-option input { margin: 3px 0 0; accent-color: var(--accent-fg); flex: none; }
+.ie-option b { display: block; font-weight: 650; font-size: 14.5px; }
+.ie-option .hint { display: block; margin-top: 2px; line-height: 1.4; }
+.ie-more { border-top: 1px solid var(--line); padding-top: 10px; }
+.ie-more summary { cursor: pointer; color: var(--ny-link); font-weight: 600; font-size: 13.5px; width: fit-content; }
+.ie-more[open] summary { margin-bottom: 12px; }
+.ie-more .hint { display: block; margin-top: 8px; }
+.ie-preview { font-family: var(--font-reading); display: flex; flex-direction: column; gap: 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-input); padding: 11px 15px; font-size: 15px; line-height: 1.5; }
+.pv-label { font-size: 12.5px; font-weight: 650; color: var(--ny-soft, var(--muted)); }
+.ie-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px 18px; flex-wrap: wrap; }
+.check-row span { display: flex; align-items: flex-start; gap: 8px; color: var(--text); font-size: 13.5px; }
+.check-row input { margin-top: 2px; }
+@media (max-width: 720px) { .identity-editor .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.actions.field-row { align-items: flex-end; }
+.actions.field-row .btn { min-height: 38px; }
+.actions.field-row select { min-height: 38px; }
+.actions select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
+.empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty svg { color: var(--green); margin-bottom: 10px; }
+form.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-top: 14px; }
+label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); }
+label.full { grid-column: 1 / -1; }
+input, select { border: 1px solid var(--line-strong); background: var(--panel); border-radius: var(--radius-input); padding: 8px 12px; color: var(--text); }
+textarea { border: 1px solid var(--line); background: var(--panel); border-radius: min(var(--radius-input), 14px); padding: 8px 12px; color: var(--text); }
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-top: 14px; }
+.theme-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.theme-card.on { outline: 2px solid var(--accent-fg); }
+.theme-card .tname { font-size: 17px; font-weight: 600; }
+.swatches { display: flex; gap: 6px; }
+.swatches span { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); }
+textarea { min-height: 60px; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent-fg); }
+.hint { font-size: 12px; color: var(--muted); }
+.mini-list { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.mini-list div { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.mini-list div:first-child { border-top: 0; }
+.section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.section h3 { font-size: 13px; margin: 0 0 8px; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { display: inline-flex; align-items: center; gap: 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 6px 3px 11px; font-size: 13px; }
+.pill button { border: 0; background: none; cursor: pointer; color: var(--muted); border-radius: 50%; width: 20px; height: 20px; line-height: 1; }
+.pill button:hover { background: var(--line); color: var(--text); }
+.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg);
+  padding: 11px 18px; border-radius: 10px; opacity: 0; transition: .2s; pointer-events: none; max-width: 640px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.has-undo { pointer-events: auto; display: flex; align-items: center; gap: 16px; font-size: 15px; padding: 12px 14px 12px 20px; text-align: left; z-index: 6; }
+.toast-undo { flex: none; border: 2px solid currentColor; background: transparent; color: inherit; font: inherit; font-weight: 700; padding: 6px 16px; border-radius: 8px; cursor: pointer; }
+.toast-undo:hover { background: var(--bg); color: var(--text); }
+.toast-undo:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.dec-label { font-size: 15.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.dec-row.undone .dec-label { color: var(--muted); font-weight: 500; }
+.busy { position: fixed; inset: 0; background: rgba(0,0,0,.08); display: none; align-items: center; justify-content: center; z-index: 5; }
+.busy.show { display: flex; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent-fg); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.tag { font-size: 12px; color: var(--muted); }
+.chip.k-for { background: var(--green-soft); color: var(--text); margin-left: 6px; vertical-align: 2px; }
+.chip.k-private { background: var(--amber-soft); color: var(--text); margin-left: 6px; vertical-align: 2px; }
+.settings-grid { display: grid; grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
+@media (max-width: 1000px) { .settings-grid { grid-template-columns: minmax(0, 1fr); } }
+.settings-grid .wide { grid-column: 1 / -1; }
+.switches { display: grid; gap: 12px; margin-top: 14px; }
+.fathom-list { margin-top: 12px; max-height: 320px; overflow: auto; }
+.fathom-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 12px;
+  border-top: 1px solid var(--line); flex-direction: row; color: var(--text); font-size: 13.5px; cursor: pointer; }
+.fathom-row:first-child { border-top: 0; }
+.fathom-row .fr-title { font-weight: 550; overflow-wrap: anywhere; }
+.fathom-row input { width: 16px; height: 16px; accent-color: var(--accent-fg); }
+#fathom-dates input[type=date] { padding: 5px 10px; }
+.switch { position: relative; display: flex; align-items: center; gap: 12px; cursor: pointer; color: var(--text); font-size: 14px; flex-direction: row; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch .track { width: 38px; height: 22px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .15s; }
+.switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--panel); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+.switch input:checked + .track { background: var(--accent); }
+.switch input:checked + .track::after { transform: translateX(16px); }
+.switch input:focus-visible + .track { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+.settings-grid h2 { margin-bottom: 6px; }
+.settings-grid .note.path { word-break: break-all; margin-top: 12px; }
+.answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px 28px; margin-top: 14px; }
+.answers .tag { margin-bottom: 6px; }
+.tool-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+.tool-row:first-of-type { border-top: 0; padding-top: 4px; }
+.tool-row .hint { margin-top: 2px; }
+.icon-btn { border: 1px solid var(--line-strong); background: var(--panel); color: var(--muted); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1; flex: none; }
+.icon-btn:hover { background: var(--panel-2); color: var(--text); }
+.practice-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: -6px 0 18px; }
+.note.removed { margin-top: 12px; }
+.overlay { position: fixed; inset: 0; background: rgba(10, 12, 16, .45); display: grid; place-items: center; z-index: 10; padding: 20px; }
+.tour { max-width: 480px; width: 100%; padding: 24px 26px; box-shadow: var(--shadow-float); }
+.tour p { line-height: 1.6; margin: 0; }
+.dots { display: flex; gap: 6px; margin-top: 16px; }
+.dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.dots span.on { background: var(--accent); }
+main a:not(.btn) { color: var(--text); text-decoration: underline; text-decoration-color: var(--accent-fg); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.modes { display: flex; background: var(--panel-2); border-radius: 8px; padding: 3px; gap: 2px; margin: 0 4px 10px; }
+.modes button { flex: 1; border: 0; background: none; padding: 5px 0; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 12.5px; }
+.modes button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+.modes-label { font-size: 12px; color: var(--muted); padding: 0 8px 6px; margin-top: auto; }
+.local { margin-top: 0; }
+/* narrower windows: detail panels drop below their list */
+@media (max-width: 1100px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  pre.doc { height: 46vh; }
+}
+/* small windows: the sidebar shrinks to icons, quieter columns hide */
+@media (max-width: 820px) {
+  .app { grid-template-columns: 64px 1fr; }
+  aside { padding: 14px 8px; }
+  .brand span, nav .label, .local span, .modes-label { display: none; }
+  .brand { justify-content: center; padding: 4px 0 14px; }
+  nav button { justify-content: center; padding: 10px 0; position: relative; }
+  nav .count { position: absolute; top: 2px; right: 2px; margin: 0; padding: 0 5px; font-size: 10.5px; }
+  .modes { flex-direction: column; margin: 0 0 10px; }
+  .local { justify-content: center; padding: 10px 0; }
+  main { padding: 20px 18px 50px; }
+  .calls .row, .calls .colhead { grid-template-columns: minmax(0, 1fr) 132px; }
+  .calls .row > :nth-child(n+3), .calls .colhead > :nth-child(n+3) { display: none; }
+  .people .row, .people .colhead { grid-template-columns: 64px minmax(0, 1fr) 44px; }
+  .people .row > :nth-child(3), .people .colhead > :nth-child(3) { display: none; }
+  .cos .row, .cos .colhead { grid-template-columns: 64px minmax(0, 1fr) 44px; }
+  .cos .row > :nth-child(3), .cos .colhead > :nth-child(3) { display: none; }
+  form.grid { grid-template-columns: minmax(0, 1fr); }
+  .head { flex-wrap: wrap; }
+}
+</style>
+<style>
+.compare-grid {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:16px}
+.compare-grid section {min-width:0}
+.compare-grid .doc {max-height:600px;white-space:pre-wrap;overflow-wrap:anywhere}
+.compare-change {font:inherit;white-space:pre-wrap;border:0;border-radius:3px;padding:0;color:#162438;background:#ffe18a}
+button.compare-change {cursor:pointer;text-align:left;text-decoration:underline;text-decoration-style:dotted}
+.group-context {margin-top:14px}
+.group-context .excerpt {margin-top:6px}
+.gc-file {display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.group-context label {display:flex;flex-direction:row;align-items:center;gap:8px;overflow-wrap:anywhere;color:var(--text);font-size:13px;cursor:pointer}
+.group-context input {width:auto;flex:none;accent-color:var(--accent-fg)}
+main {padding-top:68px}
+.app-tools {position:fixed;top:14px;right:24px;z-index:30}
+.guide-panel {position:fixed;right:24px;bottom:22px;z-index:90;width:360px;max-width:calc(100vw - 104px);max-height:45vh;overflow:auto;padding:20px;box-shadow:0 12px 40px #0002}
+.guide-panel h2 {font-size:19px;margin:8px 0}
+.guide-panel p {margin:8px 0 14px}
+.guide-panel progress {width:100%;height:7px;accent-color:var(--accent-fg)}
+body.guiding .guided-target, body.guiding .guided-target:focus {outline:4px solid #e53935;outline-offset:4px;scroll-margin:150px 0}
+.guide-panel .actions {gap:8px}
+.guide-instructions {padding-left:20px;margin:8px 0 14px;line-height:1.5}
+.guide-instructions li + li {margin-top:8px}
+body.guiding main {padding-bottom:calc(45vh + 70px)}
+@media(max-width:700px){.app-tools{right:16px}.guide-panel{right:16px;bottom:16px;padding:16px}}
+@media(max-width:1100px){.compare-grid{grid-template-columns:minmax(0,1fr)}}
+</style>
+<link rel="stylesheet" href="/theme.css" id="theme-css">
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand" id="brand"></div>
+    <nav id="nav"></nav>
+    <div class="modes-label">Light or dark</div>
+    <div class="modes" id="modes"></div>
+    <div class="local">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>Runs only on this computer. Nothing is sent anywhere.</span>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast"></div>
+<div class="busy" id="busy"><div class="spinner"></div></div>
+
+<script src="/tutorial.js"></script>
+<script>
+const TOKEN = "{{TOKEN}}";
+const PAGE_ID = Math.random().toString(36).slice(2);  // this page load; a goodbye from an older load is ignored
+const TEXT_TYPES = [".txt", ".md", ".vtt", ".srt"];
+let S = null, view = "calls", selCall = null, callTab = "clean", selClient = null, selCompany = null, docText = "";
+let pasting = false, pastedText = "", logoDraft = null, pendingDelete = null, renaming = null;
+let companyPerson = null;
+let comparisonData = null;
+const reviewSelections = new Map();
+const PENCIL = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+const TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
+let fathomOpen = false, fathomCalls = null, fathomMore = false, fathomSel = new Set(), fathomLabel = "", pullSource = "fathom";
+const SOURCE_NAMES = { fathom: "Fathom", granola: "Granola" };
+const fmtLen = n => !n ? "" : n < 60 ? `${n} min` : `${Math.floor(n / 60)} h${n % 60 ? " " + (n % 60) + " min" : ""}`;
+const SHIELD = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>';
+// Shrink any picture to a 256px square PNG in the browser, so the app never stores a huge image
+function squareLogo(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas"); c.width = c.height = 256;
+      const g = c.getContext("2d"), s = Math.min(256 / img.width, 256 / img.height);
+      const w = img.width * s, h = img.height * s;
+      g.drawImage(img, (256 - w) / 2, (256 - h) / 2, w, h);
+      URL.revokeObjectURL(img.src); res(c.toDataURL("image/png"));
+    };
+    img.onerror = () => rej(new Error("That image couldn't be read. Try a PNG or JPG."));
+    img.src = URL.createObjectURL(file);
+  });
+}
+let whoAs = (() => { try { return localStorage.getItem("whoAs") || "codes"; } catch (e) { return "codes"; } })();
+const DL_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>';
+function fmtDate(iso, full) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return full ? d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+              : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+function pasteName() {
+  if (S?.tutorial?.active) return S.tutorial.call;
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  return `pasted-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.txt`;
+}
+{ // optional deep link, e.g. #review or #calls:file.txt or #clients:C003
+  const [v, item] = decodeURIComponent(location.hash.slice(1)).split(":");
+  if (["calls", "review", "restore", "clients", "companies", "appearance", "settings"].includes(v)) view = v;
+  if (item && v === "calls") selCall = item;
+  if (item && v === "clients") selClient = item;
+  if (item && v === "companies") selCompany = item;
+}
+
+// ---------- helpers ----------
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const WORDS = ["no","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve"];
+const words = n => n < WORDS.length ? WORDS[n] : String(n);
+const plural = (n, one, many) => `${words(n)} ${n === 1 ? one : (many || one + "s")}`;
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const split = v => (v || "").split(";").map(x => x.trim()).filter(Boolean);
+const client = code => S.clients.find(c => c.code === code);
+const company = code => S.companies.find(c => c.code === code);
+const label = code => { const c = client(code); if (c) return c.full_name; const o = company(code); return o ? split(o.names)[0] : code; };
+const codesOf = call => (call.codes || "").split(",").filter(Boolean);
+
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET",
+    headers: { "X-Token": TOKEN, "X-Page": PAGE_ID, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) { let m = "Something went wrong."; try { m = (await r.json()).error || m; } catch (e) {} throw new Error(m); }
+  return r.json();
+}
+// undo = {id, label} from a one-click decision: the pop-up offers Undo for 10 seconds, and waits while the mouse is on it.
+function toast(msg, undo) {
+  const t = document.getElementById("toast"), canUndo = !!(undo && undo.id);
+  t.innerHTML = `<span>${esc(msg)}</span>` + (canUndo ? `<button type="button" class="toast-undo" data-undo="${undo.id}">Undo</button>` : "");
+  t.classList.toggle("has-undo", canUndo); t.classList.add("show");
+  clearTimeout(toast.t); toast.t = setTimeout(hideToast, canUndo ? 10000 : 4200);
+}
+function hideToast() { document.getElementById("toast").classList.remove("show", "has-undo"); }
+function undoDecision(id) {
+  return act(async () => { const r = await api("/api/undo", { id }); hideToast();
+    finalCheck = { file: null, stamp: null, items: null }; take({ state: r.state }); toast(r.message); });
+}
+function busy(on) { document.getElementById("busy").classList.toggle("show", on); }
+async function act(fn) { busy(true); try { await fn(); } catch (e) { toast(e.message); } finally { busy(false); } }
+
+function summaryText(s) {
+  if (!s) return "";
+  const parts = [];
+  if (s.cleaned) parts.push(`cleaned ${plural(s.cleaned, "call")}`);
+  if (s.held) parts.push(`holding ${plural(s.held, "call")} for you`);
+  if (!parts.length) return s.decided ? "Saved." : "Nothing new to clean.";
+  const waiting = (s.new_names || 0) + (s.ambiguous || 0);
+  return cap(parts.join(", ")) + "." + (waiting ? ` ${cap(plural(waiting, "name"))} need${waiting === 1 ? "s" : ""} you.` : "") + (s.export_failed ? ` ${cap(plural(s.export_failed, "export"))} failed. Check the call details.` : "");
+}
+
+// After a save on Review names: say what changed in plain words (the originals are never touched).
+function savedText(s) {
+  const n = (s && s.cleaned) || 0, waiting = s ? (s.new_names || 0) + (s.ambiguous || 0) : 0;
+  return "Saved." + (n ? ` Updated the clean ${n === 1 ? "copy of 1 call" : `copies of ${n} calls`}.` : "")
+    + (waiting ? ` ${cap(plural(waiting, "name"))} still to review.` : "")
+    + (s && s.export_failed ? ` ${cap(plural(s.export_failed, "export"))} failed. Check the call details.` : "");
+}
+
+async function refresh() { S = await api("/api/state"); if(S.tutorial?.active)guideNavigate();else render(); }
+function take(res) { if (res.state) S = res.state; if (res.summary) toast(summaryText(res.summary)); render(); }
+
+let identityDraft = null, skipDraftCapture = false;
+const formDrafts = new Map();
+function draftKey(f) { return f.id + ":" + (f.dataset.companyContext || "") + ":" + (f.dataset.code || "new"); }
+function rememberDrafts() {
+  if (skipDraftCapture) { skipDraftCapture = false; return; }
+  for (const f of document.querySelectorAll('#client-form, #company-form, #company-person-form')) formDrafts.set(draftKey(f), Object.fromEntries(new FormData(f)));
+}
+function restoreDrafts() {
+  for (const f of document.querySelectorAll('#client-form, #company-form, #company-person-form')) {
+    const d = formDrafts.get(draftKey(f));
+    if (d) for (const [name, value] of Object.entries(d)) if (f.elements[name]) f.elements[name].value = value;
+  }
+}
+function openIdentity(r, action = "new") {
+  const sg = { ...(r.suggestions || {}) };
+  // A company named in the same sentence ("Derek Olsen from Olsen Builds") beats one that only appears somewhere in the call.
+  if (sg.company_names && split(sg.company_names.replace(/,/g, ";")).some(n => new RegExp(`(^|[^\\w])${escRe(n)}(?![\\w])`, "i").test(hitText(r)))) sg.company_code = "";
+  identityDraft = { review_id: r.id || "", file: r.file, detected: r.name, kind: r.kind === "company" ? "company" : "person", action, code: "",
+    review_ids: r.group_ids || (r.id ? [r.id] : []), group_files: r.group_files || [], correction: !!r.correction, source: hitText(r),
+    full_name: displayName(r.name), names: sg.company_variants || r.name, aliases: "", emails: "", phones: "", company_code: sg.company_code || (sg.company_names ? "__new__" : ""), company_names: sg.company_names || "", distinct: false };
+  render();
+  document.querySelector('#identity-form [name=action]:checked')?.focus();
+}
+// The answer form. Three answers (Save, Hide, Leave visible); each shows only the few choices and fields it needs.
+const actionPath = a => ["new", "existing", "link_call"].includes(a) ? "save" : a === "keep" ? "keep" : "hide";
+function identityEditor() {
+  const d = identityDraft, person = d.kind === "person", record = ["new", "existing"].includes(d.action);
+  const noun = person ? "person" : "company", hidden = person ? "[PERSON]" : "[COMPANY]", many = d.review_ids.length > 1;
+  const next = S.next_codes?.[noun] || (person ? "C###" : "O###"), path = actionPath(d.action);
+  const pool = person ? S.clients.map(c => [c.code, c.full_name]) : S.companies.map(c => [c.code, split(c.names)[0]]);
+  const options = pool.map(([code, name]) => `<option value="${code}" ${d.code === code ? "selected" : ""}>${esc(name)} (${code})</option>`).join("");
+  const paths = d.correction ? [["save", `Use a saved ${noun}`], ["hide", "Hide it"]] : [["save", "Save it"], ["hide", "Hide it"], ["keep", "Leave visible"]];
+  const sub = {
+    save: d.correction ? [["link_call", `A saved ${noun}, this call only`, "Only this call changes. The saved record stays as it is."]] : [
+      ["new", `New ${noun}`, `Becomes ${next} in every call, now and later.`],
+      ["existing", `Someone already saved`, "Adds this spelling to their record, for every call."],
+      ["link_call", many ? "Saved, some calls only" : "Saved, this call only", "Uses a saved code here without changing the record."]],
+    hide: d.correction ? [["hide_call", "This call only", `Becomes ${hidden} here.`]] : [
+      ["hide_call", many ? "Only some calls" : "Only this call", `Becomes ${hidden} there. Nothing is saved.`],
+      ["hide_always", "Every call", `Becomes ${hidden} wherever it appears. Nothing is saved.`]],
+    keep: [["keep", "Leave it as written", "Stays visible in every call. You can undo this in Settings > Your answers."]],
+  }[path];
+  if (!person && path === "save" && !d.correction) sub[1][1] = "A company already saved";
+  const seg = (cls, name, label, list, value) => `<div class="ie-row"><span class="ie-label" id="${cls}-label">${label}</span>
+    <div class="seg-radio ${cls}" role="radiogroup" aria-labelledby="${cls}-label">${list.map(([v, t]) => `<label><input type="radio" name="${name}" value="${v}" ${value === v ? "checked" : ""}><span>${t}</span></label>`).join("")}</div></div>`;
+  const dup = person ? S.clients.some(c => c.full_name.toLowerCase() === String(d.full_name || "").trim().toLowerCase())
+    : S.companies.some(c => split(c.names).some(n => split(String(d.names || "").replace(/,/g, ";")).some(m => m.toLowerCase() === n.toLowerCase())));
+  const contacts = person && d.action === "new" ? `<details class="ie-more full" ${d.emails || d.phones ? "open" : ""}><summary>Add an email or phone number (optional)</summary>
+      <div class="grid"><label>Emails<input name="emails" value="${esc(d.emails)}"></label><label>Phone numbers<input name="phones" value="${esc(d.phones)}"></label></div>
+      <span class="hint">Emails and phone numbers in the call are hidden either way. Adding them here links them to this person's code.</span></details>` : "";
+  const fields = [
+    ['existing', 'link_call'].includes(d.action) ? `<label class="full">Which saved ${noun}?<input id="identity-search" placeholder="Search by name or code" aria-label="Search saved records"><select name="code" required><option value="">Choose a record</option>${options}</select></label>` : "",
+    d.group_files.length > 1 && ['hide_call', 'link_call'].includes(d.action) ? `<div class="full"><div class="ie-label">Which calls?</div>${groupContexts({id:d.review_id, group_files:d.group_files, group_ids:d.review_ids, name:d.detected}, true)}</div>` : "",
+    d.action === "new" && person ? `<label>Full name<input name="full_name" value="${esc(d.full_name)}" required></label>
+      <label>Nicknames and other spellings<input name="aliases" value="${esc(d.aliases)}" placeholder="Optional, e.g. Janie, Jay"></label>` : "",
+    record && person ? `<label class="full">Company<select name="company_code"><option value="">${d.action === "new" ? "None" : "Keep their current company"}</option>${S.companies.map(c => `<option value="${c.code}" ${d.company_code === c.code ? "selected" : ""}>${esc(split(c.names)[0])}</option>`).join("")}<option value="__new__" ${d.company_code === "__new__" ? "selected" : ""}>Add a new company...</option></select></label>
+      ${d.company_code === "__new__" ? `<label class="full">New company's names<input name="company_names" value="${esc(d.company_names)}" required><span class="hint">The full name and any short forms, separated by commas.</span></label>` : ""}` : "",
+    d.action === "new" && !person ? `<label class="full">Company name and short names<input name="names" value="${esc(d.names)}" required><span class="hint">The full name and any short forms, separated by commas.</span></label>` : "",
+    contacts,
+    d.action === "new" && dup ? `<label class="full check-row"><span><input type="checkbox" name="distinct" ${d.distinct ? "checked" : ""}> A saved ${noun} has this name. Tick this only if it's a different ${noun}.</span></label>` : "",
+  ].join("");
+  const token = d.action === "new" ? next : ["existing", "link_call"].includes(d.action) ? (d.code || "") : d.action === "keep" ? null : hidden;
+  const preview = token === "" ? "" : outcome(d.source || "", d.detected, token, 70);
+  return `<form id="identity-form" class="identity-editor">
+    ${seg("ie-type", "kind", "Type", [["person", "Person"], ["company", "Company"]], d.kind)}
+    ${seg("ie-path", "path", "Answer", paths, path)}
+    <div class="ie-options${sub.length === 1 ? " single" : ""}">${sub.map(([v, t, desc]) => `<label class="ie-option${d.action === v ? " on" : ""}"><input type="radio" name="action" value="${v}" ${d.action === v ? "checked" : ""}><span><b>${t}</b><span class="hint">${desc}</span></span></label>`).join("")}</div>
+    ${fields ? `<div class="grid ie-fields">${fields}</div>` : ""}
+    ${preview ? `<div class="ie-preview"><span class="pv-label">Your agents will read</span><span class="pv-text">${preview}</span></div>` : ""}
+    <div class="ie-foot"><div class="actions"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-action="identity-close">Cancel</button></div>
+      <span class="hint">${record ? "Applies in this call and future ones." : ['hide_call', 'link_call'].includes(d.action) ? `Only ${many ? "the ticked calls change" : "this call changes"}.` : "Applies to every call with this exact name."} Esc cancels.</span></div>
+  </form>`;
+}
+function mergeForm(code, pool) {
+  const others = pool.filter(c => c.code !== code);
+  if (!others.length) return "";
+  return `<form id="merge-form" class="section actions field-row" data-keep="${code}"><label style="flex:1;min-width:180px">Merge a duplicate into this record<select name="remove" required><option value="">Choose the duplicate</option>${others.map(c => `<option value="${c.code}">${esc(c.full_name || split(c.names)[0])} (${c.code})</option>`).join("")}</select></label><button class="btn" type="submit">Merge into ${code}</button></form>`;
+}
+
+// ---------- navigation ----------
+function renderNav() {
+  const items = [
+    ["calls", "Calls", S.calls.length, false, '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8"/>'],
+    ["review", "Review names", S.review.filter(r => r.kind !== "tool").length, !!S.hold_unknown && S.review.length > 0, '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>'],
+    ["restore", "Put names back", null, false, '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'],
+    ["decisions", "Recent decisions", null, false, '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'],
+    ["clients", "Clients", S.clients.length, false, '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'],
+    ["companies", "Companies", S.companies.length, false, '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>'],
+    ["appearance", "Appearance", null, false, '<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7h2c3 0 5.4-2.4 5.4-5.4C22 6 17.5 2 12 2z"/>'],
+    ["settings", "Settings", null, false, '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'],
+  ];
+  document.getElementById("nav").innerHTML = items.map(([id, name, n, alert, icon]) =>
+    `<button data-view="${id}" class="${view === id ? "on" : ""}">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
+      <span class="label">${name}</span>${n === null ? "" : `<span class="count ${alert ? "alert" : ""}">${n}</span>`}</button>`).join("");
+  document.documentElement.dataset.mode = S.mode || "auto";
+  const b = S.brand || { name: "Transcript Cleaner" };
+  document.title = b.name;
+  document.getElementById("brand").innerHTML = (b.has_logo
+    ? `<img src="/logo.png?v=${b.logo_v}" alt="" width="24" height="24" style="border-radius:6px">`
+    : SHIELD) + `<span>${esc(b.name)}</span>`;
+  const fav = document.querySelector('link[rel="icon"]');
+  if (fav && !fav.href.endsWith("v=" + b.logo_v)) fav.href = "/favicon.ico?v=" + b.logo_v;
+  document.getElementById("modes").innerHTML = [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]].map(([m, l]) =>
+    `<button data-mode-set="${m}" class="${(S.mode || "auto") === m ? "on" : ""}" title="${m === "auto" ? "Follow this computer's setting" : l + " mode"}">${l}</button>`).join("");
+}
+
+function render() {
+  rememberDrafts();
+  renderNav();
+  const m = document.getElementById("main");
+  const banner = S.tutorial?.active ? `<div class="note warn workspace-banner"><span><b>Guided tutorial.</b> This workspace contains made-up data. Exports go to a separate temporary tutorial folder.</span><button class="btn small" data-action="guide-exit">Exit tutorial</button></div>` : S.practice ? `<div class="note warn practice-bar workspace-banner"><span><b>Practice mode.</b> These are made-up sample calls and clients. Nothing here is real, and nothing is sent to your clean-calls folder.</span>
+      <button class="btn small" data-action="practice-off">Leave practice mode</button></div>` : "";
+  m.innerHTML = banner + { calls: viewCalls, review: viewReview, decisions: viewDecisions, restore: viewRestore, clients: viewClients, companies: viewCompanies,
+                  appearance: viewAppearance, settings: viewSettings }[view]();
+  if (view === "calls" && selCall) { loadDoc().catch(e => toast(e.message)); loadFinalCheck(); }
+  restoreDrafts();
+  renderTour();
+  renderGuide();
+}
+
+// ---------- calls ----------
+function viewCalls() {
+  const warn = S.onedrive ? `<div class="note bad">This folder is inside OneDrive, so your original transcripts would sync to the cloud. Move it before adding real calls.</div>` : "";
+  const who = c => codesOf(c).filter(x => x[0] === "C").map(x => whoAs === "names"
+      ? `<span class="code person" title="${x}">${esc(label(x))}</span>`
+      : `<span class="code" title="${esc(label(x))}">${x}</span>`).join("") || '<span class="muted">-</span>';
+  const dl = (c, kind, text) => `<a class="btn small" href="/api/download?file=${encodeURIComponent(c.file)}&kind=${kind}&t=${TOKEN}" title="Download the ${text.toLowerCase()} copy as Markdown" aria-label="Download ${text.toLowerCase()}">${DL_ICON}<span class="txt">${text}</span></a>`;
+  const list = S.calls.length ? `<div>
+      <div class="list-tools"><span class="tag">${cap(plural(S.calls.length, "call"))}</span>
+        <div class="seg" title="Show who's in each call as codes or names">
+          <button data-who="codes" class="${whoAs === "codes" ? "on" : ""}">Codes</button>
+          <button data-who="names" class="${whoAs === "names" ? "on" : ""}">Names</button></div></div>
+      <div class="card calls ${selCall ? "compact" : ""}">
+      <div class="colhead"><span>Call</span><span>Status</span><span>Who's in it</span><span>Actions</span></div>
+      <div class="row-list">${S.calls.map(c => `
+        <div class="row ${selCall === c.file ? "sel" : ""}" data-call="${esc(c.file)}">
+          <span>${renaming === c.file
+            ? `<form class="rename-form" data-rename-form="${esc(c.file)}"><input name="to" value="${esc(c.file)}" aria-label="New name for this call" required>
+                <button class="btn small primary" type="submit">Save</button><button class="btn small" type="button" data-action="rename-cancel">Cancel</button></form>`
+            : `<span class="name" title="${esc(c.file)}">${esc(c.file)}</span>`}
+            <span class="when" title="${c.status === "clean" ? "Cleaned" : "Added"} ${esc(fmtDate(c.updated, true))}">${c.status === "clean" ? "Cleaned" : "Added"} ${esc(fmtDate(c.updated))}</span></span>
+          <span class="status-chips">${c.status === "clean" ? '<span class="chip clean"><span class="dot"></span>Clean</span>' + (S.review.some(r => r.file === c.file && r.kind !== "tool") ? (n => `<button type="button" class="chip rv-tag" data-view-link="review" title="Open Review names">${n} ${n === 1 ? "name" : "names"} to review ›</button>`)(S.review.filter(r => r.file === c.file && r.kind !== "tool").length) : "") : '<span class="chip held"><span class="dot"></span>Waiting on you</span>'}</span>
+          <span class="codes">${who(c)}</span>
+          <span class="dl">${c.status === "clean" ? dl(c, "clean", "Clean") + dl(c, "raw", "Original") : dl(c, "held", "Original")}${pendingDelete === c.file
+            ? `<button class="btn small danger" data-row-delete="${esc(c.file)}" data-confirm="1" title="Click again to delete">Delete?</button>`
+            : `<button class="icon-btn row-act" data-rename="${esc(c.file)}" title="Rename this call" aria-label="Rename this call">${PENCIL}</button><button class="icon-btn small-trash row-act" data-row-delete="${esc(c.file)}" title="Delete this call" aria-label="Delete this call">${TRASH}</button>`}</span>
+        </div>`).join("")}</div></div></div>` : "";
+  const preview = selCall ? previewPanel() : "";
+  const showSample = !S.calls.length || S.tutorial?.active;  // once you have your own calls, the sample lives behind Guided tutorial
+  return `<div class="head"><div><h1>Calls</h1><p class="sub">Drop transcripts here. Clean copies are what your agents should read.</p></div></div>
+    ${warn}
+    <section class="card export-destination${!S.output_dir||!S.output_ok?' needs-setup':''}" aria-label="Clean export folder">
+      <span class="dest-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+      <div class="destination-info"><h2>Clean export folder ${!S.output_dir?'<span class="chip held">Not set</span>':!S.output_ok?'<span class="chip held">Folder unavailable</span>':''}</h2>
+        ${S.output_dir?`<div class="export-path">${esc(S.output_dir)}</div>`:''}
+        <div class="hint">${S.tutorial?.active?'This exercise uses a separate sample folder.':!S.output_dir?'Choose where approved clean copies land. Until then, they stay in the app.':'Approved clean copies land here. Originals stay in private storage.'}</div></div>
+      <div class="actions"><button class="btn ${!S.output_dir||!S.output_ok?'primary':''}" data-action="output-browse" ${S.tutorial?.active?'disabled':''}>${S.output_dir?'Change folder...':'Choose export folder...'}</button>${S.output_dir?'<button class="btn" data-action="output-open">Open folder</button>':''}</div>
+    </section>
+    <div class="drop" id="drop">
+      <strong>Drop transcripts or a whole folder here</strong>
+      <div class="muted">Or copy a transcript (Fathom's "Copy transcript" works) and press Ctrl+V on this screen.</div>
+      <div class="actions" style="justify-content:center">
+        <button class="btn primary" data-action="pick">Choose files</button>
+        <button class="btn" data-action="paste-open">Paste a transcript</button>
+        ${Object.entries(SOURCE_NAMES).map(([id, name]) => S[id]?.has_key && (!S.practice||S.tutorial?.active) ? `<button class="btn" data-action="fathom-open" data-source="${id}" ${S.tutorial?.active?'disabled':''}>Pull from ${name}</button>` : "").join("")}
+        ${showSample ? `<button class="btn" data-action="tutorial-load" ${S.tutorial?.active&&guideCall()?'disabled':''}>Use sample call</button>` : ""}
+      </div>
+      ${showSample ? `<details class="sample-preview" id="sample-preview"><summary>Preview the sample call (invented data)</summary><pre class="doc">${esc(S.sample)}</pre></details>` : ""}
+      <input type="file" id="picker" multiple accept="${TEXT_TYPES.join(",")}" hidden>
+    </div>
+    ${fathomOpen ? fathomPanel() : ""}
+    ${suggestCard()}
+    ${pasting ? `<form class="card panel" id="paste-form" style="margin-bottom:20px">
+      <h2>Paste a transcript</h2><div class="tag">It's cleaned like any dropped file. The original is kept privately in your vault.</div>
+      <label class="full" style="margin-top:12px">Name<input name="name" value="${esc(pasteName())}" required></label>
+      <label class="full" style="margin-top:10px">Transcript<textarea name="text" id="paste-text" style="min-height:220px" placeholder="Paste here (Ctrl+V)" required>${esc(pastedText)}</textarea></label>
+      <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Clean it</button>
+        <button class="btn" type="button" data-action="paste-close">Cancel</button></div></form>` : ""}
+    ${S.calls.length ? `<div class="${selCall ? "split" : ""}">${list}${preview}</div>` :
+      `<div class="empty">No calls yet. Drop a transcript or use the sample above.${S.practice ? "" : `<div style="margin-top:12px"><button class="btn" data-action="practice-on">Or try it with sample calls first</button></div>`}</div>`}`;
+}
+
+// ---------- adding clients without typing: meeting invites, and a pasted list or CSV ----------
+const sgEdits = new Map();  // email -> {name, company, pick}, so edits survive a re-render
+let bulkOpen = false, bulkText = "", bulkRows = null, bulkPick = new Set();
+function sgRow(s) { return { pick: true, name: s.name, company: s.company, ...(sgEdits.get(s.email) || {}) }; }
+function suggestCard() {
+  const list = S.suggested_people || [];
+  if (!list.length || S.tutorial?.active) return "";
+  const picked = list.filter(s => sgRow(s).pick).length;
+  return `<section class="card panel suggest-card" aria-label="People from your meeting invites">
+    <div class="head"><div><h2>People from your meeting invites</h2>
+      <div class="hint">${cap(plural(list.length, "person", "people"))} on your invites ${list.length === 1 ? "isn't" : "aren't"} saved yet. Save the ones who are clients: their names and emails become codes in every call from now on. Check each name and the company guessed from the email.</div></div></div>
+    <datalist id="sg-companies">${S.companies.map(c => `<option value="${esc(split(c.names)[0])}">`).join("")}</datalist>
+    <div class="sg-list">${list.map(s => { const r = sgRow(s); return `<div class="sg-row">
+      <input type="checkbox" data-sg-pick="${esc(s.email)}" ${r.pick ? "checked" : ""} aria-label="Save ${esc(r.name || s.email)}">
+      <label>Name<input data-sg-field="name" data-sg-email="${esc(s.email)}" value="${esc(r.name)}" placeholder="Their full name"></label>
+      <label>Company<input data-sg-field="company" data-sg-email="${esc(s.email)}" value="${esc(r.company)}" placeholder="Optional" list="sg-companies"></label>
+      <span class="sg-email">${esc(s.email)}</span></div>`; }).join("")}</div>
+    <div class="actions" style="margin-top:12px"><button class="btn primary" data-action="sg-save" ${picked ? "" : "disabled"}>Save ${picked ? plural(picked, "client") : "as clients"}</button>
+      <button class="btn" data-action="sg-dismiss" ${picked ? "" : "disabled"}>Not clients</button>
+      <span class="hint">Not clients removes the ticked people from this list for good.</span></div>
+  </section>`;
+}
+const BULK_STATUS = { new: ["held", "New"], saved: ["clean", "Already saved"], "no-name": ["", "Needs a name"] };
+function bulkPanel() {
+  const rows = bulkRows || [], picked = rows.filter((r, i) => bulkPick.has(i)).length;
+  return `<div class="card panel bulk-panel" style="margin-bottom:20px">
+    <div class="head"><div><h2>Add many clients at once</h2>
+      <div class="hint">Paste a list, or choose a CSV exported from your CRM, Google Contacts or a spreadsheet (in Excel: File, Save As, CSV). One person per line: name, company, email, phone. A header row is fine, and you'll see everything before it's saved.</div></div>
+      <button class="icon-btn" data-action="bulk-close" title="Close" aria-label="Close">&times;</button></div>
+    <textarea id="bulk-text" style="width:100%;min-height:140px;margin-top:12px" placeholder="Jane Whitfield, Bluefern Bakery, jane@bluefernbakery.com, 555-214-8890">${esc(bulkText)}</textarea>
+    <div class="actions" style="margin-top:10px"><button class="btn" data-action="bulk-file">Choose a CSV file</button><input type="file" id="bulk-picker" accept=".csv,.tsv,.txt" hidden>
+      <button class="btn primary" data-action="bulk-preview">Preview</button></div>
+    ${bulkRows === null ? "" : !rows.length ? `<div class="note">No people found. Put one person per line, with a name first.</div>` : `
+      <div class="bulk-table" role="table">
+        <div class="bulk-row bulk-head" role="row"><span></span><span>Name</span><span>Company</span><span>Email</span><span>Phone</span><span></span></div>
+        ${rows.map((r, i) => `<label class="bulk-row" role="row"><input type="checkbox" data-bulk-pick="${i}" ${bulkPick.has(i) ? "checked" : ""} ${r.status !== "new" ? "disabled" : ""}>
+          <span>${esc(r.name) || '<span class="muted">-</span>'}</span><span>${esc(r.company) || '<span class="muted">-</span>'}</span>
+          <span class="bulk-email">${esc(r.email) || '<span class="muted">-</span>'}</span><span>${esc(r.phone) || '<span class="muted">-</span>'}</span>
+          <span>${BULK_STATUS[r.status][0] ? `<span class="chip ${BULK_STATUS[r.status][0]}"><span class="dot"></span>${BULK_STATUS[r.status][1]}</span>` : `<span class="hint">${BULK_STATUS[r.status][1]}</span>`}</span></label>`).join("")}
+      </div>
+      <div class="actions" style="margin-top:12px"><button class="btn primary" data-action="bulk-save" ${picked ? "" : "disabled"}>Save ${picked ? plural(picked, "client") : "clients"}</button>
+        <span class="hint">Each gets the next free code, and companies are created or linked. Your calls are checked again afterwards.</span></div>`}
+  </div>`;
+}
+
+// ---------- final check: anything in the clean copy that still looks identifying ----------
+let finalCheck = { file: null, stamp: null, items: null };
+const fcPending = c => finalCheck.file === c.file && finalCheck.stamp === c.updated && finalCheck.items ? finalCheck.items.length : 0;
+const approveLabel = c => fcPending(c) ? `Approve anyway (${words(fcPending(c))} unchecked)` : "Approve clean copy and export";
+function finalCheckHtml(c) {
+  if (finalCheck.file !== c.file || finalCheck.stamp !== c.updated || !finalCheck.items)
+    return `<div class="final-check" id="final-check"><span class="hint">Final check: looking for anything that still looks like a name, email or phone number...</span></div>`;
+  const items = finalCheck.items;
+  if (!items.length) return `<div class="final-check ok" id="final-check"><b>Final check passed.</b> Nothing left that looks like a name, company, email or phone number. A quick read is still worth it: the check can't catch everything.</div>`;
+  // One plain question per item: the reader should know what to do without reading anything else.
+  const q = i => i.kind === "maybe" ? `Is “${esc(i.phrase)}” the name of a person or a company?`
+    : i.kind === "contact" ? `${i.reason === "A phone number" ? "A phone number" : "An email address"} is still showing: ${esc(i.phrase)}`
+    : `“${esc(i.phrase)}” is still showing. It matches a saved client or company.`;
+  const yes = i => i.kind === "maybe" ? "Yes, hide it" : "Hide it", no = i => i.kind === "maybe" ? "No, leave it" : "Leave it showing";
+  return `<div class="final-check" id="final-check">
+    <div class="fc-head"><b class="fc-title">Before your agents read this: ${items.length === 1 ? "one thing" : `${items.length} things`} to check</b>
+      <span class="fc-sub">The cleaner wasn't sure about ${items.length === 1 ? "this" : "these"}. Answer each one.</span></div>
+    ${items.map((i, n) => `<div class="fc-row">
+      <div class="fc-q">${q(i)}</div>${i.kind === "saved" ? `<div class="fc-sub">${esc(i.reason)}</div>` : ""}
+      <div class="fc-label">Where it appears${i.count > 1 ? ` (${i.count} times)` : ""}:</div>
+      <div class="fc-ctx">${esc(i.before)}<mark>${esc(i.match)}</mark>${esc(i.after)}</div>
+      <div class="actions"><button class="btn" data-action="tag-missed" data-file="${esc(c.file)}" data-phrase="${esc(i.phrase)}">${yes(i)}</button>
+        <button class="btn" data-final-ok="${n}">${no(i)}</button></div></div>`).join("")}
+  </div>`;
+}
+function paintFinalCheck(c) {
+  const box = document.getElementById("final-check");
+  if (box) box.outerHTML = finalCheckHtml(c);
+  const b = document.querySelector(`[data-action="approve-export"][data-file="${CSS.escape(c.file)}"]`);
+  if (b) b.textContent = approveLabel(c);
+}
+function t0(e, action) { return e.target.closest(`[data-action="${action}"]`); }
+async function teamPreview() {
+  teamText = document.getElementById("team-text")?.value ?? teamText;
+  if (!teamText.trim()) { toast("Paste a team list or open a file first."); return; }
+  try { const r = await api("/api/team-list", { action: "preview", text: teamText }); teamRows = r.rows; teamSkipped = r.skipped; render(); }
+  catch (err) { toast(err.message); }
+}
+async function bulkPreview() {
+  bulkText = document.getElementById("bulk-text")?.value ?? bulkText;
+  if (!bulkText.trim()) { toast("Paste a list or choose a CSV file first."); return; }
+  await act(async () => { const r = await api("/api/import-clients", { text: bulkText });
+    bulkRows = r.rows; bulkPick = new Set(r.rows.map((x, i) => x.status === "new" ? i : -1).filter(i => i >= 0)); render(); });
+}
+async function loadFinalCheck() {
+  const c = S.calls.find(x => x.file === selCall);
+  if (!c || c.status !== "clean" || (finalCheck.file === c.file && finalCheck.stamp === c.updated && finalCheck.items)) return;
+  const file = c.file, stamp = c.updated;
+  const r = await api(`/api/final-check?file=${encodeURIComponent(file)}`).catch(() => ({ items: [] }));
+  finalCheck = { file, stamp, items: r.items || [] };
+  const now = S.calls.find(x => x.file === selCall);
+  if (now && now.file === file && now.updated === stamp) paintFinalCheck(now);
+}
+
+function previewPanel() {
+  const c = S.calls.find(x => x.file === selCall);
+  if (!c) return "";
+  const held = c.status !== "clean";
+  if (held) callTab = "raw";
+  return `<div class="card panel">
+    <div class="head"><div><h2>${esc(c.file)}</h2>
+      <div class="tag">${held ? "Held until you answer the names it found" : "Cleaned " + esc(fmtDate(c.updated, true)) + (c.clean_name && c.clean_name !== c.file ? " &middot; saved as " + esc(c.clean_name) : "")}</div></div>
+      <div class="actions" style="flex-wrap:nowrap"><div class="seg">${held ? "" : `<button data-tab="clean" class="${callTab === "clean" ? "on" : ""}">Clean</button><button data-tab="compare" class="${callTab === "compare" ? "on" : ""}">Before / after</button>`}
+        <button data-tab="raw" class="${callTab === "raw" ? "on" : ""}">Original</button></div>
+        <button class="icon-btn" data-action="close-call" title="Close" aria-label="Close preview">&times;</button></div></div>
+    ${held ? `<div class="note warn">This call is waiting on you. Answer it in <a href="#" data-view-link="review">Review names</a> and it will clean itself.</div>` : ""}
+    ${!held ? removedLine(c) : ""}
+    ${c.export_error ? `<div class="note bad">Could not export: ${esc(c.export_error)}. Your original and clean copy are preserved. Check the destination, then use Send all clean calls in Settings to retry.</div>` : ""}
+    ${!held ? finalCheckHtml(c) : ""}
+    ${!held && S.review_before_export ? `<div class="note approve-row ${c.export_approved ? "" : "warn"}"><span>${c.export_approved ? "This clean copy is approved for automatic export." : "Read the clean copy, then approve it to export. Tag anything the cleaner missed."}</span>${!c.export_approved ? `<button class="btn primary" data-action="approve-export" data-file="${esc(c.file)}">${approveLabel(c)}</button>` : ""}</div>` : ""}
+    ${callTab === 'compare' && !held ? `<div class="hint">Original stays private. Changes are highlighted in both copies. Click a highlighted original phrase to correct it, or select original text and use Tag a missed name or company.</div><div class="compare-grid"><section><h3>Original (private)</h3><pre class="doc" id="compare-original">Loading...</pre></section><section><h3>Clean copy</h3><pre class="doc" id="doc">Loading...</pre></section></div>` : `<pre class="doc" id="doc">Loading...</pre>`}
+    ${identityDraft && identityDraft.file === c.file && !identityDraft.review_id ? identityEditor() : `<button class="btn" data-action="tag-missed" data-file="${esc(c.file)}">Tag a missed name or company</button>`}
+    <div class="actions" style="margin-top:12px">
+      ${held ? "" : `<button class="btn primary" data-action="copy-clean" data-file="${esc(c.file)}">Copy clean</button>
+        <a class="btn" href="/api/download?file=${encodeURIComponent(c.file)}&kind=clean&t=${TOKEN}">Download clean (.md)</a>`}
+      <a class="btn" href="/api/download?file=${encodeURIComponent(c.file)}&kind=${held ? "held" : "raw"}&t=${TOKEN}">Download original (.md)</a>
+      <span class="hint">Give your agents the clean one.</span>
+      <button class="btn danger" data-action="delete-call" data-file="${esc(c.file)}" style="margin-left:auto">Delete call</button>
+    </div></div>`;
+}
+
+function fathomPanel() {
+  const today = new Date().toISOString().slice(0, 10);
+  const list = fathomCalls === null ? `<div class="hint" style="margin-top:12px">Pick a window above. Nothing is pulled until you choose calls and click Pull.</div>`
+    : !fathomCalls.length ? `<div class="note" style="margin-top:12px">No calls in ${esc(fathomLabel)}.</div>`
+    : `<div class="mini-list fathom-list">${fathomCalls.map(c => `<label class="fathom-row ${c.in_app ? "muted" : ""}">
+        <input type="checkbox" data-fathom-pick="${c.id}" ${fathomSel.has(String(c.id)) ? "checked" : ""} ${c.in_app ? "disabled" : ""}>
+        <span class="fr-title">${esc(c.title)}</span>
+        <span class="tag">${esc(fmtDate(c.when, true))}${c.minutes ? " &middot; " + fmtLen(c.minutes) : ""}${c.in_app ? " &middot; already in the app" : ""}</span></label>`).join("")}</div>
+      ${fathomMore ? `<div class="hint" style="margin-top:8px">There are more calls in this window than shown. Pick a narrower date range to see them.</div>` : ""}
+      <div class="actions" style="margin-top:12px"><button class="btn primary" data-action="fathom-pull-selected" ${fathomSel.size ? "" : "disabled"}>Pull ${fathomSel.size ? plural(fathomSel.size, "call") : "selected calls"}</button>
+        <span class="hint">Long calls take a little longer to clean. Everything happens on this computer.</span></div>`;
+  return `<div class="card panel" style="margin-bottom:20px">
+    <div class="head"><div><h2>Pull from ${SOURCE_NAMES[pullSource]}</h2><div class="tag">Choose a window, then tick the calls you want. Only those are brought in.</div></div>
+      <button class="icon-btn" data-action="fathom-close" title="Close" aria-label="Close">&times;</button></div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" data-fathom-range="recent">My most recent call</button>
+      <button class="btn" data-fathom-range="24h">Last 24 hours</button>
+      <button class="btn" data-fathom-range="7d">Last 7 days</button>
+      <form class="actions" id="fathom-dates"><span class="hint">or from</span><input type="date" name="from" max="${today}" required>
+        <span class="hint">to</span><input type="date" name="to" max="${today}"><button class="btn" type="submit">Show</button></form>
+    </div>${list}</div>`;
+}
+
+function removedLine(c) {
+  let r = {};
+  try { r = JSON.parse(c.removed || "{}"); } catch (e) {}
+  const parts = [["people", "name"], ["companies", "company", "companies"], ["emails", "email"], ["phones", "phone number"]]
+    .filter(([k]) => r[k]).map(([k, one, many]) => plural(r[k], one, many));
+  if (!c.removed) return `<div class="note removed">This call was cleaned before the app counted what it removed. <button class="btn small" data-action="reclean">Update all clean copies</button> to see it.</div>`;
+  if (!parts.length) return `<div class="note removed">Nothing needed removing from this call.</div>`;
+  const last = parts.pop();
+  return `<div class="note removed"><b>Removed from this call:</b> ${parts.length ? parts.join(", ") + " and " + last : last}.</div>`;
+}
+
+async function loadDoc() {
+  const c = S.calls.find(x => x.file === selCall);
+  if (!c) return;
+  const file = c.file, tab = callTab;
+  if (tab === 'compare' && c.status === 'clean') {
+    const r = await api(`/api/compare?file=${encodeURIComponent(file)}`);
+    if (selCall !== file || callTab !== tab || !document.getElementById('compare-original')) return;
+    comparisonData = r;
+    const spans = (parts, editable) => parts.map(p => p.change === undefined ? esc(p.text) : editable
+      ? `<button type="button" class="compare-change" data-action="correct-change" data-change="${p.change}" title="Correct this phrase">${esc(p.text)}</button>`
+      : `<mark class="compare-change">${esc(p.text)}</mark>`).join('');
+    document.getElementById('compare-original').innerHTML = spans(r.original, true);
+    document.getElementById('doc').innerHTML = spans(r.clean, false);
+    return;
+  }
+  const kind = c.status === "clean" ? (callTab === "clean" ? "clean" : "raw") : "held";
+  const r = await api(`/api/call?file=${encodeURIComponent(c.file)}&kind=${kind}`);
+  if (selCall !== file || callTab !== tab) return;
+  const el = document.getElementById("doc");
+  if (!el) return;
+  const safe = esc(r.text);
+  el.innerHTML = kind === "clean"
+    ? safe.replace(/\b([CO]\d{3}(?:-EMAIL|-PHONE)?|EMAIL-\d+|PHONE-\d+)\b|(\[PERSON\]|\[COMPANY\])/g,
+        (m) => `<span class="tok" title="${esc(m.startsWith("C") || m.startsWith("O") ? label(m.slice(0, 4)) : "")}">${m}</span>`)
+    : safe;
+}
+
+async function uploadFiles(files) {
+  const picked = files.filter(f => TEXT_TYPES.some(t => f.name.toLowerCase().endsWith(t)));
+  if (!picked.length) { toast("No transcripts in that drop. Use text, Markdown, VTT or SRT files."); return; }
+  await act(async () => {
+    const payload = await Promise.all(picked.map(async f => ({ name: f.name, text: await f.text() })));
+    take(await api("/api/upload", { files: payload }));
+  });
+}
+
+async function filesFromDrop(dt) {
+  const out = [];
+  const walk = entry => new Promise(res => {
+    if (entry.isFile) entry.file(f => { out.push(f); res(); }, () => res());
+    else if (entry.isDirectory) {
+      const reader = entry.createReader(); const all = [];
+      const read = () => reader.readEntries(async ents => {
+        if (!ents.length) { await Promise.all(all.map(walk)); res(); } else { all.push(...ents); read(); } }, () => res());
+      read();
+    } else res();
+  });
+  const entries = [...dt.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (entries.length) await Promise.all(entries.map(walk)); else out.push(...dt.files);
+  return out;
+}
+
+// ---------- needs you ----------
+// One question per card, in reading order. Each answer shows exactly what your agents will read.
+let nyPeak = 0;
+const nyMore = new Set();
+const KIND_RANK = { ambiguous: 0, unknown: 1, company: 2 };
+// The review list. Unsure names are already hidden (PERSON-1, COMPANY-1), so nothing here blocks a call:
+// save the clients, mark what's fine to show or a tool, and keep the rest hidden.
+const rvOpen = new Set();   // rows showing where the name was said
+const rvSeen = new Set();   // names seen on Review names since the app opened, for the progress bar
+let rvToolsOpen = false;   // the AI-tools fold stays open across redraws
+const rvKind = r => r.kind === "ambiguous" ? "which" : r.kind === "company" ? "company" : r.kind === "tool" ? "tool" : "person";
+const rvMentions = r => (r.group_files || []).reduce((n, f) => n + ((S.review.find(x => x.id === f.id) || {}).mentions || 0), 0) || r.mentions || 0;
+function rvRow(r, inCall = false) {   // inCall: the call is already the heading, so the row leaves its file name out
+  const k = rvKind(r), name = displayName(r.name), many = r.group_ids.length > 1, m = rvMentions(r);
+  const files = [...new Set(r.group_files.map(f => f.file))];
+  const tokens = [...new Set(r.group_files.map(f => (S.review.find(x => x.id === f.id) || {}).token).filter(Boolean))];
+  const speaker = r.group_files.some(f => (S.review.find(x => x.id === f.id) || {}).speaker);
+  const chip = { person: ["k-person", "Person"], company: ["k-company", "Company"], which: ["k-which", "Which client?"], tool: ["k-tool", "Kept as a tool"] }[k];
+  const status = k === "tool" ? "Visible: this call talks about it like an AI tool" : tokens.length ? `Hidden as <span class="code">${esc(tokens.join(", "))}</span>` : S.hold_unknown ? "Holding the call" : "Hidden";
+  let actions;
+  if (k === "tool") {
+    actions = `<button class="btn small" data-rv-quick="tool" data-rv-id="${r.id}">Yes, a tool</button>`
+      + `<button class="btn small" data-rv-quick="hide_always" data-rv-id="${r.id}">It's a person: hide it</button>`
+      + `<button class="btn small" data-identity="${r.id}">Save as a client</button>`;
+  } else if (k === "which") {
+    const codes = r.candidates.split(" or ");
+    actions = codes.map(code => `<button class="btn small" data-decide="${r.id}" data-value="${code}">It's ${esc(label(code))} <span class="code">${code}</span></button>`).join("")
+      + `<button class="btn small" data-decide="${r.id}" data-value="person">Someone else</button>`;
+  } else {
+    actions = (speaker && !S.owner_name ? `<button class="btn small" data-rv-me="${r.id}">This is me</button>` : "")
+      + `<button class="btn small primary" data-identity="${r.id}">${k === "company" ? "Save as a company" : "Save as a client"}</button>`
+      + (speaker && k === "person" ? `<button class="btn small" data-rv-team="${r.id}">On my team</button>`
+        : `<button class="btn small" data-rv-quick="keep" data-rv-id="${r.id}">Fine to show</button>`
+          + (r.name.trim().includes(" ") ? "" : `<button class="btn small" data-rv-quick="tool" data-rv-id="${r.id}">It's a tool</button>`))
+      + (S.hold_unknown ? `<button class="btn small" data-identity="${r.id}" data-identity-action="hide_call">Keep hidden in this call</button>`
+        : `<button class="btn small" data-rv-hide="${r.group_ids.join(",")}">Keep hidden</button>`);
+  }
+  const open = rvOpen.has(r.id);
+  const editing = identityDraft && identityDraft.review_id === r.id;
+  return `<div class="rv-row${editing ? " editing" : ""}" data-q="${r.id}">
+    <div class="rv-main">
+      <div class="rv-name"><b>${esc(k === "which" ? `Which ${cap(r.name)}?` : name)}</b>
+        <span class="chip ${chip[0]}"><span class="dot"></span>${chip[1]}</span>${speaker ? '<span class="chip rv-speaker">Speaking on the call</span>' : ""}</div>
+      <div class="rv-meta">${m ? `${plural(m, "mention")} · ` : ""}${status}${!inCall && (many || S.calls.length > 1) ? ` · ${many ? plural(files.length, "call") : esc(files[0])}` : ""}
+        · <button type="button" class="link-btn rv-where" data-rv-open="${r.id}" aria-expanded="${open}">${open ? "Hide where" : "See where"}</button></div>
+    </div>
+    <div class="actions rv-actions">${actions}</div>
+    ${open ? `<div class="rv-context">${many ? groupContexts(r, false) : excerptHtml(r.excerpt, r.name, r.context)}</div>` : ""}
+    ${editing ? `<div class="rv-edit">${identityEditor()}</div>` : ""}
+  </div>`;
+}
+function viewReview() {
+  const groups = reviewGroups();
+  const ownerBox = !S.owner_name && !S.tutorial?.active ? `<form class="card panel rv-owner" id="owner-form">
+      <div><b>What's your name?</b><div class="hint">Your name stays visible in every call, so you never show up in this list.</div></div>
+      <div class="actions"><input name="name" placeholder="Your full name" autocomplete="name" required><button class="btn primary" type="submit">Save</button></div></form>` : "";
+  if (!groups.length) {
+    return `<div class="ny"><h1>Review names</h1><p class="sub">Names the cleaner wasn't sure about show up here. They're already hidden in your clean copies, so nothing here blocks a call.</p>
+    ${ownerBox}${rvSeen.size ? rvProgress([]) : ""}<div class="card empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>
+    <div style="font-size:16px;color:var(--text);font-weight:600">Nothing to review</div><div>Every name in your calls has been handled.</div></div></div>`;
+  }
+  const rank = r => rvKind(r) === "which" ? 0 : r.group_files.some(f => (S.review.find(x => x.id === f.id) || {}).speaker) ? 1 : 2;
+  const tools = groups.filter(r => rvKind(r) === "tool");
+  const sorted = groups.filter(r => rvKind(r) !== "tool").sort((a, b) => rank(a) - rank(b) || rvMentions(b) - rvMentions(a) || a.name.localeCompare(b.name));
+  const allIds = sorted.flatMap(r => r.group_ids);
+  // Grouped by call, newest first, because people remember calls. A name in several calls is asked once, at the top.
+  const multi = sorted.filter(r => new Set(r.group_files.map(f => f.file)).size > 1);
+  const byCall = new Map();
+  for (const r of sorted) if (!multi.includes(r)) { const f = r.group_files[0].file; if (!byCall.has(f)) byCall.set(f, []); byCall.get(f).push(r); }
+  const order = [...S.calls.map(c => c.file).filter(f => byCall.has(f)), ...[...byCall.keys()].filter(f => !S.calls.some(c => c.file === f))];
+  const count = rs => `<span class="rv-call-count">${rs.length} ${rs.length === 1 ? "name" : "names"}</span>`;
+  const callCard = f => { const c = S.calls.find(x => x.file === f), rs = byCall.get(f);
+    return `<section class="card rv-list rv-call"><div class="rv-call-head"><div><h2 class="rv-call-title">${esc(f)}</h2>${c ? `<span class="hint">${c.status === "clean" ? "Cleaned" : "Added"} ${esc(fmtDate(c.updated))}</span>` : ""}</div>${count(rs)}</div>${rs.map(r => rvRow(r, true)).join("")}</section>`; };
+  const rows = (multi.length ? `<section class="card rv-list rv-call"><div class="rv-call-head"><div><h2 class="rv-call-title">In more than one call</h2><span class="hint">One answer covers every call it's in.</span></div>${count(multi)}</div>${multi.map(r => rvRow(r)).join("")}</section>` : "")
+    + order.map(callCard).join("");
+  return `<div class="ny rv"><div class="head"><div><h1>Review names</h1>
+      <p class="sub">${sorted.length ? `${cap(plural(sorted.length, "name"))} the cleaner wasn't sure about ${sorted.length === 1 ? "is" : "are"}` : "Names the cleaner isn't sure about are"} already hidden in your clean copies (as PERSON-1, COMPANY-1 and so on), so your calls are ready to use. Save the people who are clients so they get a lasting code, mark anything that's fine to show, and keep the rest hidden.</p></div>
+      ${S.hold_unknown || !allIds.length ? "" : `<button class="btn" data-rv-hide="${allIds.join(",")}">Keep all ${words(sorted.length)} hidden</button>`}</div>
+    ${ownerBox}
+    ${rvProgress(groups)}
+    ${rows || `<div class="card rv-list"><div class="rv-row"><span class="hint">Nothing else to look at.</span></div></div>`}
+    ${tools.length ? `<details class="card rv-once rv-tools"${rvToolsOpen || tools.some(r => rvOpen.has(r.id) || (identityDraft && identityDraft.review_id === r.id)) ? " open" : ""}><summary>${cap(plural(tools.length, "name"))} kept visible as AI tools: check none of them is a real person</summary>${tools.map(r => rvRow(r)).join("")}</details>` : ""}
+  </div>`;
+}
+
+function rvKey(r) { return JSON.stringify([r.kind, r.name.toLowerCase(), r.candidates || ""]); }
+function rvProgress(groups) {
+  const now = new Set(groups.map(rvKey));
+  now.forEach(k => rvSeen.add(k));
+  const total = rvSeen.size, left = now.size, done = total - left;
+  const pct = total ? Math.round(done / total * 100) : 100;
+  return `<div class="card rv-progress" role="progressbar" aria-label="Names reviewed" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${done}">
+    <div class="rv-progress-top"><b>${done} of ${total} ${total === 1 ? "name" : "names"} reviewed</b><span>${left ? `${left} to go` : "All done"}</span></div>
+    <div class="rv-bar"><span style="width:${pct}%"></span></div></div>`;
+}
+document.addEventListener("toggle", e => { if (e.target.matches?.("details.rv-tools")) rvToolsOpen = e.target.open; }, true);
+
+// Every one-click answer, newest first, each with Undo: the safety net once the pop-up is gone.
+function viewDecisions() {
+  const list = S.decisions || [];
+  const intro = `<h1>Recent decisions</h1><p class="sub">Your answers on Review names and in the final check, newest first. Changed your mind? Undo puts it back the way it was and updates your clean copies.</p>`;
+  if (!list.length) return `<div class="ny">${intro}<div class="card empty"><div style="font-size:16px;color:var(--text);font-weight:600">Nothing yet</div>
+    <div>When you answer a name on Review names or in the final check, it shows up here so you can undo it.</div></div></div>`;
+  return `<div class="ny">${intro}<div class="card rv-list">${list.map(d => `<div class="rv-row dec-row${d.undone ? " undone" : ""}">
+      <div class="rv-main"><div class="dec-label">${esc(d.label)}</div><div class="rv-meta">${esc(fmtDate(d.at, true))}${d.file ? ` · ${esc(d.file)}` : ""}</div></div>
+      <div class="actions">${d.undone ? '<span class="chip">Undone</span>' : `<button class="btn" data-undo="${d.id}">Undo</button>`}</div></div>`).join("")}</div></div>`;
+}
+
+function reviewGroups() {
+  const groups = new Map();
+  for (const r of S.review) {
+    const key = JSON.stringify([r.kind, r.name.toLowerCase(), r.candidates || '']);
+    if (!groups.has(key)) groups.set(key, {...r, group_ids:[], group_files:[]});
+    const g = groups.get(key); g.group_ids.push(r.id); g.group_files.push({id:r.id, file:r.file, context:r.context, excerpt:r.excerpt, excerpt_more:r.excerpt_more});
+  }
+  return [...groups.values()];
+}
+function selectedReviewIds(r) {
+  const chosen = reviewSelections.get(r.id);
+  return (r.group_ids || [r.id]).filter(id => !chosen || chosen.has(id));
+}
+function groupContexts(r, selectable = false) {
+  const more = nyMore.has(r.id);
+  return `<div class="group-contexts">${(r.group_files || []).map(f => `<div class="group-context"><div class="gc-file">${selectable
+    ? `<label><input type="checkbox" data-review-pick="${r.id}" data-review-row="${f.id}" ${selectedReviewIds(r).includes(f.id) ? 'checked' : ''}> Apply to ${esc(f.file)}</label>`
+    : `${DOC_ICON}<span>${esc(f.file)}</span>`}</div>${excerptHtml(more ? f.excerpt_more : f.excerpt, r.name, f.context)}</div>`).join('')}</div>`;
+}
+
+const DOC_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+const escRe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function highlight(ctx, name) {
+  const safe = esc(ctx), n = escRe(esc(name));
+  return safe.replace(new RegExp(`(^|[^\\w])(${n})(?![\\w])`, "gi"), "$1<mark>$2</mark>");
+}
+// The transcript lines around a mention: time, speaker, words. Falls back to the plain snippet.
+function excerptHtml(ex, name, fallback) {
+  if (!ex?.lines?.length) return fallback ? `<div class="excerpt"><div class="ex-line hit"><div class="ex-body">${highlight(fallback, name)}</div></div></div>` : "";
+  const timed = ex.lines.some(l => l.time);
+  return `<div class="excerpt${timed ? "" : " no-time"}">${ex.lines.map(l => `<div class="ex-line${l.hit ? " hit" : ""}">${timed ? `<span class="ex-time">${esc(l.time)}</span>` : ""}<div class="ex-body">${l.speaker ? `<span class="ex-speaker">${highlight(l.speaker, name)}</span>` : ""}${highlight(l.text, name)}</div></div>`).join("")}</div>`;
+}
+// The mentioned sentence as your agents would read it after this answer. token null = left as written.
+function outcome(src, name, token, room = 34) {
+  if (!src) return "";
+  const re = new RegExp(`(^|[^\\w])(${escRe(name)})(?![\\w])`, "i"), m = re.exec(src);
+  if (!m) return "";
+  const at = m.index + m[1].length, end = at + m[2].length;
+  let a = Math.max(0, at - room), b = Math.min(src.length, end + room + 10);
+  const sp = src.indexOf(" ", a), sp2 = src.lastIndexOf(" ", b);
+  if (a && sp >= 0 && sp < at) a = sp + 1;
+  if (b < src.length && sp2 > end) b = sp2;
+  const piece = src.slice(a, b), all = new RegExp(`(^|[^\\w])(${escRe(name)})(?![\\w])`, "gi");
+  let html = "", last = 0;
+  for (const x of piece.matchAll(all)) {
+    const s = x.index + x[1].length;
+    html += esc(piece.slice(last, s)) + (token === null ? `<span class="kept">${esc(x[2])}</span>` : `<span class="tok">${esc(token)}</span>`);
+    last = s + x[2].length;
+  }
+  return (a ? "…" : "") + html + esc(piece.slice(last)) + (b < src.length ? "…" : "");
+}
+const hitText = r => r.excerpt?.lines?.find(l => l.hit)?.text || (r.context || "").replace(/^\.\.\.|\.\.\.$/g, "");
+const displayName = n => n === n.toLowerCase() ? n.replace(/(^|[\s'-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase()) : n;
+function choice({ attrs, title, desc, preview, primary }) {
+  return `<button type="button" class="choice${primary ? " primary" : ""}" ${attrs}>
+    <span class="choice-text"><span class="choice-title">${title}</span><span class="choice-desc">${desc}</span></span>
+    ${preview ? `<span class="choice-preview"><span class="sr-only">Your agents read: </span><span class="pv-text">${preview}</span></span>` : ""}</button>`;
+}
+
+function reviewCard(r, groups = []) {
+  const many = r.group_ids?.length > 1, name = displayName(r.name), src = hitText(r);
+  const mentions = r.excerpt?.mentions > 1 ? ` · said ${words(r.excerpt.mentions)} times` : "";
+  const chip = { unknown: ["k-person", "New person"], company: ["k-company", "New company"], ambiguous: ["k-which", "Which client?"] }[r.kind];
+  const head = `<div class="q-head"><span class="chip ${chip[0]}"><span class="dot"></span>${chip[1]}</span>
+    <span class="q-where">${many ? `In ${plural(r.group_ids.length, "call")}` : `${DOC_ICON}<span>${esc(r.file)}${mentions}</span>`}</span></div>`;
+  const more = nyMore.has(r.id), hasMore = many || (r.excerpt_more?.lines?.length || 0) > (r.excerpt?.lines?.length || 0);
+  const where = (many ? `<div class="hint ny-caution">The same name isn't always the same person. Check each call.</div>${groupContexts(r, r.kind === 'ambiguous')}`
+    : excerptHtml(more ? r.excerpt_more : r.excerpt, r.name, r.context))
+    + (hasMore ? `<button type="button" class="link-btn" data-ny-more="${r.id}" aria-expanded="${more}">${more ? "Show less" : "Show more of the call"}</button>` : "");
+  const card = (question, body, note = "") => `<article class="card rcard" data-q="${r.id}">${head}<h2 class="who">${question}</h2>${note}${where}${body}</article>`;
+  if (identityDraft && identityDraft.review_id === r.id) return card(r.kind === "ambiguous" ? `Which ${esc(cap(r.name))} is this?` : `Should ${esc(name)} be hidden?`, identityEditor());
+  if (r.kind === "ambiguous") {
+    const codes = r.candidates.split(" or ");
+    const who = code => { const c = client(code), co = c?.company_code ? label(c.company_code) : ""; return [code, co, c ? plural(c.calls, "call") : ""].filter(Boolean).join(" · "); };
+    const someone = choice({ attrs: `data-decide="${r.id}" data-value="person"`, title: codes.length === 1 ? "No, someone else" : "Someone else",
+      desc: `Hidden as [PERSON] in ${many ? "the ticked calls" : "this call"}. Nothing is saved.`, preview: outcome(src, r.name, "[PERSON]") });
+    if (codes.length === 1) return card(`Is this ${esc(label(codes[0]))}?`,
+      `<div class="choices"><div class="choices-head" aria-hidden="true"><span>Your answer</span><span>What your agents read</span></div>${choice({ attrs: `data-decide="${r.id}" data-value="${codes[0]}"`, title: `Yes, it's ${esc(label(codes[0]))}`, desc: esc(who(codes[0])), preview: outcome(src, r.name, codes[0]), primary: true })}${someone}</div>`,
+      `<p class="q-note">A common first name isn't assumed to be your client. Your answer only applies to ${many ? "the ticked calls" : "this call"}.</p>`);
+    return card(`Which ${esc(cap(r.name))} is this?`,
+      `<div class="choices"><div class="choices-head" aria-hidden="true"><span>Your answer</span><span>What your agents read</span></div>${codes.map(code => choice({ attrs: `data-decide="${r.id}" data-value="${code}"`, title: esc(label(code)), desc: esc(who(code)), preview: outcome(src, r.name, code) })).join("")}${someone}</div>`,
+      `<p class="q-note">More than one of your clients has this first name. Your answer only applies to ${many ? "the ticked calls" : "this call"}.</p>`);
+  }
+  const isCo = r.kind === "company", noun = isCo ? "company" : "person", hidden = isCo ? "[COMPANY]" : "[PERSON]";
+  // A person and their company often arrive together ("Derek Olsen from Olsen Builds"): say so, so one answer covers both.
+  const coNames = split((r.suggestions?.company_names || "").replace(/,/g, ";")).map(s => s.toLowerCase());
+  const partner = isCo
+    ? groups.find(g => g.kind === "unknown" && g.file === r.file && split((g.suggestions?.company_names || "").replace(/,/g, ";")).some(s => s.toLowerCase() === r.name.toLowerCase()))
+    : groups.find(g => g.kind === "company" && g.file === r.file && coNames.includes(g.name.toLowerCase()));
+  const note = partner ? `<p class="q-note">${isCo
+    ? `Mentioned with ${esc(displayName(partner.name))}, who is also waiting. Saving ${esc(displayName(partner.name))} can add this company in the same step.`
+    : `${esc(partner.name)} is waiting too. Saving ${esc(name)} can add it as their company in the same step.`}</p>` : "";
+  return card(`Should ${esc(name)} be hidden?`, `<div class="choices"><div class="choices-head" aria-hidden="true"><span>Your answer</span><span>What your agents read</span></div>
+    ${choice({ attrs: `data-identity="${r.id}"`, title: `Save as a ${noun}`, primary: true,
+      desc: `Gets the code ${S.next_codes?.[isCo ? "company" : "person"] || (isCo ? "O###" : "C###")} in every call, now and later. Or link one you've already saved.`,
+      preview: outcome(src, r.name, S.next_codes?.[isCo ? "company" : "person"] || (isCo ? "O###" : "C###")) })}
+    ${choice({ attrs: `data-identity="${r.id}" data-identity-action="hide_call"`, title: many ? "Hide in some calls only" : "Hide in this call only",
+      desc: many ? "Choose the calls next. Nothing is saved." : "Nothing is saved, so other calls aren't affected.", preview: outcome(src, r.name, hidden) })}
+    ${choice({ attrs: `data-identity="${r.id}" data-identity-action="keep"`, title: "Leave it visible",
+      desc: isCo ? "For a public brand, a tool, or a word that isn't a company. You'll confirm next." : "For you, a public figure, or a word that isn't a name. You'll confirm next.", preview: outcome(src, r.name, null) })}
+  </div>`, note);
+}
+
+// ---------- put names back ----------
+// The agent's answer and the restored text live only in this page's memory: never saved, never sent anywhere.
+let restoreIn = "", restoreOut = null, restoreTimer = null;
+let teamOpen = false, teamText = "", teamRows = null, teamSkipped = [];
+const teamNames = () => new Set((S.team || []).flatMap(n => [n.toLowerCase(), n.split(" ")[0].toLowerCase()]));  // shown in Your team, not twice
+function teamPreviewHtml() {
+  const words = { new: "Will stay visible", have: "Already on your list", client: "A saved client: stays hidden" };
+  const fresh = teamRows.filter(r => r.status === "new").length;
+  return `<div class="team-preview">${teamRows.length ? `<div class="mini-list">${teamRows.map(r => `<div><span><b>${esc(r.name)}</b>${r.kind === "tool" ? " (tool)" : ""}</span><span class="team-st st-${r.status}">${words[r.status]}</span></div>`).join("")}</div>`
+      : '<div class="muted">No names found. Put one name on each line.</div>'}
+    ${teamSkipped.length ? `<div class="hint">Left out ${plural(teamSkipped.length, "line")} that ${teamSkipped.length === 1 ? "isn't a name" : "aren't names"}.</div>` : ""}
+    <div class="actions" style="margin-top:8px"><button class="btn primary" data-action="team-import" ${fresh ? "" : "disabled"}>${fresh ? `Add ${fresh}` : "Nothing new to add"}</button></div></div>`;
+}
+const AGENT_NOTE = "Transcripts use codes instead of real names: C001 is a person, O001 is a company, C001-EMAIL and C001-PHONE are their email and phone, EMAIL-1 or PHONE-1 is a one-off contact, and PERSON-1 or COMPANY-1 is a name hidden without a saved record (the same code means the same name in every call). Keep every code exactly as written in anything you draft, including emails and documents. Never guess who a code is.";
+function restoreHtml() {
+  if (!restoreOut) return `<div class="restore-out empty-out">Your answer with real names appears here.</div>`;
+  return `<div class="restore-out" id="restore-out">${restoreOut.map(s => s.code === undefined ? esc(s.text)
+    : `<mark class="rs-${s.status}" title="${s.status === "restored" ? esc(s.code) : s.status === "hidden" ? "Hidden without a record: there's no name to put back" : "Not a saved code"}">${esc(s.text)}</mark>`).join("")}</div>`;
+}
+function restoreSummary() {
+  if (!restoreOut) return "";
+  const n = k => restoreOut.filter(s => s.status === k).length;
+  const parts = [n("restored") ? `${cap(plural(n("restored"), "code"))} turned back into names` : "No codes found",
+    n("unknown") ? `${cap(plural(n("unknown"), "code"))} not saved in this app (left as written)` : "",
+    n("hidden") ? `${cap(plural(n("hidden"), "placeholder"))} like [PERSON] can't be restored: ${n("hidden") === 1 ? "it was" : "those were"} hidden without a record` : ""].filter(Boolean);
+  return parts.join(". ") + ".";
+}
+function viewRestore() {
+  return `<h1>Put names back</h1><p class="sub">Paste what your agent wrote. Codes like C001 turn back into real names, emails and phone numbers, here on this computer, so you can send it. Nothing on this page is saved.</p>
+    <div class="restore-grid">
+      <section class="card panel"><h2>Your agent's answer</h2>
+        <textarea id="restore-in" placeholder="Hi C001, thanks for walking me through O001's van schedule. I'll send the proposal to C001-EMAIL by Friday.">${esc(restoreIn)}</textarea>
+        <div class="actions" style="margin-top:10px"><button class="btn" data-action="restore-clear">Clear</button></div></section>
+      <section class="card panel"><h2>With real names</h2>
+        <div id="restore-result">${restoreHtml()}</div>
+        <div class="hint" id="restore-summary" style="margin-top:8px">${esc(restoreSummary())}</div>
+        <div class="actions" style="margin-top:10px"><button class="btn primary" data-action="restore-copy">Copy</button>
+          <span class="hint">Highlighted words were codes. Read it once before you send it.</span></div></section>
+    </div>
+    <section class="card panel" style="margin-top:20px"><h2>Tell your agent to keep the codes</h2>
+      <div class="hint">Paste this once into your agent's instructions, so drafts come back with codes this page can turn into names.</div>
+      <div class="note agent-note">${esc(AGENT_NOTE)}</div>
+      <div class="actions" style="margin-top:10px"><button class="btn" data-action="restore-copy-note">Copy instructions</button></div></section>`;
+}
+async function runRestore() {
+  if (!restoreIn.trim()) { restoreOut = null; } else {
+    const r = await api("/api/restore", { text: restoreIn }).catch(e => { toast(e.message); return null; });
+    if (!r) return;
+    restoreOut = r.segments;
+  }
+  if (view !== "restore") return;
+  document.getElementById("restore-result").innerHTML = restoreHtml();
+  document.getElementById("restore-summary").textContent = restoreSummary();
+}
+
+// ---------- clients ----------
+function viewClients() {
+  const list = S.clients.length ? `<div class="card people">
+    <div class="colhead"><span>Code</span><span>Name</span><span>Company</span><span>Calls</span></div>
+    <div class="row-list">${S.clients.map(c => `<div class="row ${selClient === c.code ? "sel" : ""}" data-client="${c.code}">
+      <span class="code">${c.code}</span><span class="name">${esc(c.full_name)}</span>
+      <span class="muted">${c.company_code ? esc(label(c.company_code)) : "-"}</span><span class="muted">${c.calls}</span></div>`).join("")}</div></div>`
+    : `<div class="card empty">No clients yet. Add one, or approve names from your calls.</div>`;
+  return `<div class="head"><div><h1>Clients</h1><p class="sub">Each client gets one code. Every way they show up in a call becomes that code.</p></div>
+    <div class="actions"><button class="btn" data-action="bulk-open">Add many at once</button><button class="btn primary" data-action="new-client">Add client</button></div></div>
+    ${bulkOpen ? bulkPanel() : ""}
+    <div class="${selClient ? "split" : ""}">${list}${selClient ? clientPanel() : ""}</div>`;
+}
+
+function clientPanel(selected = selClient, companyCode = "") {
+  const isNew = selected === "new";
+  const c = isNew ? { code: "", full_name: "", aliases: "", company_code: companyCode, emails: "", phones: "", notes: "" } : client(selected);
+  if (!c) return "";
+  const closeAction = companyCode ? "close-company-person" : "close-client";
+  const calls = isNew ? [] : S.calls.filter(k => codesOf(k).includes(c.code));
+  const join = v => split(v).join(", ");
+  return `<div class="card panel">
+    <div class="head"><div><h2>${isNew ? (companyCode ? "New person" : "New client") : esc(c.full_name)}</h2><div class="tag">${isNew ? "Gets the next free code when you save" : "Shows up in calls as " + c.code}</div></div>
+      <div class="actions" style="flex-wrap:nowrap">${isNew ? "" : `<span class="code" style="font-size:14px">${c.code}</span>`}
+        <button class="icon-btn" data-action="${closeAction}" title="Close" aria-label="Close">&times;</button></div></div>
+    <form class="grid" id="${companyCode ? "company-person-form" : "client-form"}" data-code="${c.code}" data-company-context="${companyCode}">
+      <label class="full">Full name<input name="full_name" value="${esc(c.full_name)}" required></label>
+      <label class="full">Other names and nicknames<input name="aliases" value="${esc(join(c.aliases))}" placeholder="Janie, Jay"><span class="hint">Separate with commas. Their first name is included automatically.</span></label>
+      <label>Emails<input name="emails" value="${esc(join(c.emails))}" placeholder="name@company.com"></label>
+      <label>Phone numbers<input name="phones" value="${esc(join(c.phones))}" placeholder="(555) 123-4567"></label>
+      ${companyCode ? `<div class="hint full">Linked to ${esc(label(companyCode))} (${companyCode}).<input type="hidden" name="company_code" value="${companyCode}"></div>` : `<label class="full">Company<select name="company_code"><option value="">None</option>${S.companies.map(o => `<option value="${o.code}" ${o.code === c.company_code ? "selected" : ""}>${esc(split(o.names)[0])} (${o.code})</option>`).join("")}</select></label>
+      <label class="full">Or add a company here<input name="company_names" placeholder="Bluefern Bakery, Bluefern"><span class="hint">Creates or links the company when you save, without leaving this form.</span></label>`}
+      <label class="full"><span><input type="checkbox" name="distinct"> This is a different person with the same name as an existing record</span></label>
+      <label class="full">Private notes<textarea name="notes" placeholder="Only you see this.">${esc(c.notes)}</textarea></label>
+      <div class="actions full" style="grid-column:1/-1"><button class="btn primary" type="submit">${isNew ? (companyCode ? "Add person" : "Add client") : "Save changes"}</button>
+        <button class="btn" type="button" data-action="${closeAction}">Cancel</button></div>
+    </form>
+    ${isNew ? "" : `<div class="section"><h3>Calls with ${esc(c.full_name.split(" ")[0])} (${words(calls.length)})</h3>
+      ${calls.length ? `<div class="mini-list">${calls.map(k => `<div><span>${esc(k.file)}</span>${k.status === "clean" ? '<span class="chip clean"><span class="dot"></span>Clean</span>' : '<span class="chip held"><span class="dot"></span>Waiting</span>'}</div>`).join("")}</div>
+      <div class="actions" style="margin-top:12px"><a class="btn" href="/api/export?code=${c.code}&kind=clean&t=${TOKEN}">Download clean calls</a>
+      <a class="btn" href="/api/export?code=${c.code}&kind=raw&t=${TOKEN}">Download originals</a></div>
+      <div class="hint" style="margin-top:6px">Downloads save to this computer only.</div>` : `<div class="muted">No cleaned calls yet.</div>`}</div>`}
+    ${isNew || companyCode ? "" : mergeForm(c.code, S.clients)}
+  </div>`;
+}
+
+// ---------- companies ----------
+function viewCompanies() {
+  const list = S.companies.length ? `<div class="card cos">
+    <div class="colhead"><span>Code</span><span>Name</span><span>People</span><span>Calls</span></div>
+    <div class="row-list">${S.companies.map(c => `<div class="row ${selCompany === c.code ? "sel" : ""}" data-company="${c.code}">
+      <span class="code">${c.code}</span><span class="name">${esc(split(c.names).join(", "))}</span>
+      <span class="muted">${c.people}</span><span class="muted">${c.calls}</span></div>`).join("")}</div></div>`
+    : `<div class="card empty">No companies yet.</div>`;
+  return `<div class="head"><div><h1>Companies</h1><p class="sub">Companies get their own codes, and clients link to them.</p></div>
+    <button class="btn primary" data-action="new-company">Add company</button></div>
+    <div class="${selCompany ? "split" : ""}">${list}${selCompany ? companyPanel() : ""}</div>`;
+}
+
+function companyPanel() {
+  const isNew = selCompany === "new";
+  const c = isNew ? { code: "", names: "" } : company(selCompany);
+  if (!c) return "";
+  const people = isNew ? [] : S.clients.filter(p => p.company_code === c.code);
+  const unlinked = S.clients.filter(p => !p.company_code);
+  return `<div class="card panel"><div class="head"><div><h2>${isNew ? "New company" : esc(split(c.names)[0])}</h2>
+    <div class="tag">${isNew ? "Gets the next free code when you save" : "Shows up in calls as " + c.code}</div></div>
+    <div class="actions" style="flex-wrap:nowrap">${isNew ? "" : `<span class="code" style="font-size:14px">${c.code}</span>`}
+      <button class="icon-btn" data-action="close-company" title="Close" aria-label="Close">&times;</button></div></div>
+    <form class="grid" id="company-form" data-code="${c.code}">
+      <label class="full">Names it goes by<input name="names" value="${esc(split(c.names).join(", "))}" placeholder="Bluefern Bakery, Bluefern" required><span class="hint">Separate with commas.</span></label>
+      <label class="full"><span><input type="checkbox" name="distinct"> This is a separate company with a matching name</span></label>
+      <div class="actions full" style="grid-column:1/-1"><button class="btn primary" type="submit">${isNew ? "Add company" : "Save changes"}</button>
+      <button class="btn" type="button" data-action="close-company">Cancel</button></div></form>
+    ${isNew ? "" : `<div class="section"><div class="head"><h3>People (${words(people.length)})</h3><button class="btn" data-action="company-add-person" data-company-code="${c.code}">Add person</button></div>
+      ${people.length ? `<div class="mini-list">${people.map(p => `<div><button class="btn" data-action="company-edit-person" data-person-code="${p.code}" data-company-code="${c.code}">${esc(p.full_name)}</button><span class="code">${p.code}</span></div>`).join("")}</div>` : '<div class="muted">No people linked yet. Add someone to this company.</div>'}
+      ${companyPerson?.company_code === c.code ? `<div style="margin-top:16px">${clientPanel(companyPerson.client_code, c.code)}</div>` : ""}
+      ${unlinked.length ? `<form id="company-link-person" class="actions field-row" data-company-code="${c.code}" style="margin-top:12px"><label style="flex:1;min-width:180px">Link an existing person<select name="person_code" required><option value="">Choose someone without a company</option>${unlinked.map(p => `<option value="${p.code}">${esc(p.full_name)} (${p.code})</option>`).join("")}</select></label><button class="btn" type="submit">Link person</button></form>` : ""}
+      <div class="actions" style="margin-top:12px"><a class="btn" href="/api/export?code=${c.code}&kind=clean&t=${TOKEN}">Download clean calls</a>
+      <a class="btn" href="/api/export?code=${c.code}&kind=raw&t=${TOKEN}">Download originals</a></div></div>`}
+    ${isNew ? "" : mergeForm(c.code, S.companies)}
+  </div>`;
+}
+
+// ---------- appearance ----------
+function viewAppearance() {
+  const cards = S.themes.map(t => `<div class="card theme-card ${S.theme === t.id ? "on" : ""}">
+      <div class="swatches">${t.swatches.map(c => `<span style="background:${esc(c)}"></span>`).join("")}</div>
+      <div><div class="tname">${esc(t.name)}</div><div class="tag">${esc(t.tagline)}</div></div>
+      <div class="actions">${S.theme === t.id ? '<span class="chip clean"><span class="dot"></span>In use</span>'
+        : `<button class="btn small primary" data-theme="${esc(t.id)}">Use this look</button>`}</div></div>`).join("");
+  return `<h1>Appearance</h1><p class="sub">Make the app yours. Drop in a design.md and the app restyles itself. No AI and no internet involved.</p>
+    <div class="drop" id="drop">
+      <strong>Drop a design.md here</strong>
+      <div class="muted">Browse looks at <a href="https://styles.refero.design" target="_blank" rel="noopener">Refero Styles</a> (or any DESIGN.md library), download the one you like, and drop it in.</div>
+      <button class="btn primary" data-action="pick-theme">Choose a design.md</button>
+      <input type="file" id="theme-picker" accept=".md" hidden>
+    </div>
+    <div class="themes">
+      <div class="card theme-card ${!S.theme ? "on" : ""}">
+        <div class="swatches"><span style="background:#f6f7f9"></span><span style="background:#ffffff"></span><span style="background:#2f6fdb"></span><span style="background:#1b1f24"></span></div>
+        <div><div class="tname">Default</div><div class="tag">Clean and quiet, follows your computer's light or dark mode</div></div>
+        <div class="actions">${!S.theme ? '<span class="chip clean"><span class="dot"></span>In use</span>' : '<button class="btn small primary" data-theme="">Use this look</button>'}</div>
+      </div>${cards}</div>
+    <div class="note" style="max-width:860px;margin-top:18px">A design.md can only change colours, fonts and corner rounding here. It can't change what the app does, and it never sees your calls. Fonts the design names but your computer doesn't have fall back to the closest built-in ones.</div>
+    <div class="card panel" style="max-width:860px;margin-top:20px">
+      <h2>Name and logo</h2>
+      <div class="hint">Call it whatever you like and give it your own icon. It shows in the sidebar, on the window, and on your desktop shortcut.</div>
+      <form class="grid" id="brand-form">
+        <label class="full">App name<input name="name" value="${esc(S.brand.name)}" maxlength="40" placeholder="Transcript Cleaner"></label>
+        <div class="full" style="grid-column:1/-1;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+          <div style="width:64px;height:64px;border-radius:14px;background:var(--panel-2);display:grid;place-items:center;overflow:hidden;flex:none">
+            ${logoDraft ? `<img src="${logoDraft}" alt="" width="64" height="64">` : S.brand.has_logo ? `<img src="/logo.png?v=${S.brand.logo_v}" alt="" width="64" height="64">` : SHIELD.replace(/width="22" height="22"/, 'width="30" height="30" style="color:var(--accent-fg)"')}
+          </div>
+          <div class="actions"><button class="btn" type="button" data-action="pick-logo">Choose a logo</button>
+            ${S.brand.has_logo || logoDraft ? '<button class="btn" type="button" data-action="reset-logo">Use the original icon</button>' : ""}</div>
+          <input type="file" id="logo-picker" accept="image/png,image/jpeg,image/webp" hidden>
+        </div>
+        <div class="hint full" style="grid-column:1/-1">Want a custom logo? Ask ChatGPT (or any image tool) for "a simple, flat app icon of [your idea], centred on a plain background, square", download it, and choose it here. Square pictures work best.</div>
+        <div class="actions full" style="grid-column:1/-1"><button class="btn primary" type="submit">Save name and logo</button></div>
+      </form>
+    </div>`;
+}
+
+async function uploadTheme(file) {
+  if (!file || !file.name.toLowerCase().endsWith(".md")) { toast("That isn't a design.md file."); return; }
+  await act(async () => { const r = await api("/api/theme", { text: await file.text() }); S = r.state; reloadTheme(); render(); toast(`Now using ${r.name}.`); });
+}
+function reloadTheme() { document.getElementById("theme-css").href = "/theme.css?v=" + Date.now(); }
+
+// ---------- first-run tour ----------
+let tourStep = -1;
+function renderTour() {
+  let el = document.getElementById("tour");
+  if (!el) { el = document.createElement("div"); el.id = "tour"; document.body.appendChild(el); }
+  if (tourStep < 0 && !S.tour_done && !S.practice && !S.calls.length) tourStep = 0;
+  if (tourStep < 0 || S.tutorial?.active) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="overlay"><div class="card tour" role="dialog" aria-modal="true" aria-label="Welcome to ${esc(S.brand.name)}">
+    <h2>Welcome to ${esc(S.brand.name)}</h2><p>Start with a sample call we provide. No pasting, uploading or confidential material needed. The guide walks you through tagging, review and export with invented details and a temporary export folder.</p>
+    <p>Your own calls and client list stay in their current workspace. You can pause, go back or exit at any time.</p>
+    <div class="actions"><button class="btn" data-action="tour-skip">Skip for now</button><button class="btn primary" data-action="tutorial-start">Try a sample call</button></div></div></div>`;
+}
+async function endTour() { tourStep = -1; S.tour_done = true; renderTour(); await api("/api/tour", { done: true }).catch(() => {}); }
+
+// ---------- settings ----------
+function viewSettings() {
+  const pills = (list, kind, empty) => list.length
+    ? `<div class="pills">${list.map(a => `<span class="pill">${esc(a)}<button title="Remove" data-forget="${kind}" data-name="${esc(a)}">&times;</button></span>`).join("")}</div>`
+    : `<span class="muted">${empty}</span>`;
+  const f = S.fathom || {}, g = S.granola || {};
+  return `<h1>Settings</h1><p class="sub">Two folders: private storage keeps the originals with real names, and the clean export folder gets the coded copies your agents read. Below them, your meeting apps and what the cleaner hides.</p>
+  <div class="settings-grid">
+    <div class="card panel">
+      <h2>Private storage <span class="chip k-private">Only this app</span></h2>
+      <div class="hint">The original transcripts with real names, and your client list: the only record of who each code is. Never give an AI agent access to this folder.</div>
+      <div class="note path">${esc(S.home)}</div>
+      ${S.onedrive ? '<div class="note bad">This folder is inside OneDrive. Move it so original transcripts never sync to the cloud.</div>'
+        : '<div class="hint" style="margin-top:8px">Keep it out of OneDrive, Dropbox and any folder your AI agents work in. Back up its <b>private</b> folder encrypted: it is the only place that knows who each code is.</div>'}
+      <div class="actions" style="margin-top:12px"><button class="btn" data-action="private-open">Open folder</button><button class="btn" data-action="vault-browse" ${S.practice ? "disabled" : ""}>Move / switch private storage...</button>
+        <span class="hint">Pick a folder and your files move there. Pick an existing Transcript Cleaner folder to switch to it.</span></div>
+    </div>
+    <div class="card panel">
+      <h2>Clean export folder <span class="chip k-for">For your AI agents</span></h2>
+      <div class="hint">The copies with names swapped for codes like C001. They land here after cleaning (and after you approve them, if review is on). This is the folder you let your agents read.</div>
+      <div class="note path">${S.output_dir ? esc(S.output_dir) : "Not set: clean calls stay in the app until you download or copy them."}</div>
+      ${S.output_dir && !S.output_ok ? `<div class="note bad">That folder can't be found right now. Pick it again.</div>` : ""}
+      <div class="actions" style="margin-top:12px"><button class="btn primary" data-action="output-browse" ${S.tutorial?.active?'disabled':''}>Choose export folder...</button>
+        ${S.output_dir ? '<button class="btn" data-action="output-open">Open folder</button>' : ""}
+        ${S.output_dir ? `<button class="btn" data-action="output-send-all">Send all clean calls there now</button><button class="btn" data-action="output-clear" ${S.tutorial?.active?'disabled':''}>Stop copying</button>` : ""}</div>
+      ${S.tutorial?.active?'<div class="hint" style="margin-top:10px">The tutorial keeps this temporary folder and review setting. Exit to choose locations for your own calls.</div>':''}
+      <label class="switch" style="margin-top:14px"><input type="checkbox" data-export-review ${S.tutorial?.active?'disabled':''} ${S.review_before_export ? "checked" : ""}><span class="track"></span><span><b>Review before automatic export</b><span class="hint" style="display:block">Approve each clean copy in Calls. If its content changes, it needs approval again.</span></span></label>
+    </div>
+    <div class="card panel">
+      <h2>Fathom</h2>
+      ${f.has_key ? `<div class="hint">Connected. <b>Pull from Fathom</b> on the Calls page lets you choose exactly which calls to bring in: your most recent, the last day or week, or a date range${f.last_pull ? ` (last pulled ${esc(fmtDate(f.last_pull, true))})` : ""}. Pulled calls get neutral file names, because meeting titles often name the client.</div>
+        <div class="actions" style="margin-top:12px"><button class="btn primary" data-action="fathom-open" ${S.tutorial?.active?'disabled':''}>Pull from Fathom</button><button class="btn" data-action="fathom-clear" data-source="fathom" ${S.tutorial?.active?'disabled':''}>Remove key</button></div>`
+      : `<div class="hint">Bring calls in straight from Fathom, no copying or downloading. In Fathom open <b>Settings</b>, then <b>API Access</b>, and generate a key. Paste it here: it's saved in this computer's own password store (Windows Credential Manager or the Mac Keychain), never in a file and never shown again.</div>
+        <form class="actions" id="fathom-form" style="margin-top:12px"><input name="key" type="password" autocomplete="off" placeholder="Paste your Fathom API key" style="flex:1;min-width:220px" ${S.tutorial?.active?'disabled':''}><button class="btn primary" type="submit" ${S.tutorial?.active?'disabled':''}>Connect</button></form>`}
+      ${S.tutorial?.active?'<div class="hint" style="margin-top:12px">This exercise uses the provided sample. Exit to connect Fathom or pull your own calls.</div>':''}
+    </div>
+    <div class="card panel">
+      <h2>Granola</h2>
+      ${g.has_key ? `<div class="hint">Connected. <b>Pull from Granola</b> on the Calls page lets you choose which meeting notes to bring in, the same way as Fathom${g.last_pull ? ` (last pulled ${esc(fmtDate(g.last_pull, true))})` : ""}. Only the transcript is pulled, never Granola's summary, and files get neutral names.</div>
+        <div class="actions" style="margin-top:12px"><button class="btn primary" data-action="fathom-open" data-source="granola" ${S.tutorial?.active?'disabled':''}>Pull from Granola</button><button class="btn" data-action="fathom-clear" data-source="granola" ${S.tutorial?.active?'disabled':''}>Remove key</button></div>`
+      : `<div class="hint">Bring meeting transcripts in straight from Granola. Needs a Granola <b>Business</b> or <b>Enterprise</b> plan. In the Granola desktop app open <b>Settings</b>, then <b>Connectors</b>, then <b>API keys</b>, and create a key with access to your personal notes. Paste it here: it's saved in this computer's own password store, never in a file and never shown again.</div>
+        <form class="actions" id="granola-form" style="margin-top:12px"><input name="key" type="password" autocomplete="off" placeholder="Paste your Granola API key (starts with grn_)" style="flex:1;min-width:220px" ${S.tutorial?.active?'disabled':''}><button class="btn primary" type="submit" ${S.tutorial?.active?'disabled':''}>Connect</button></form>`}
+      ${S.tutorial?.active?'<div class="hint" style="margin-top:12px">This exercise uses the provided sample. Exit to connect Granola or pull your own calls.</div>':''}
+    </div>
+    <div class="card panel">
+      <h2>What to hide</h2>
+      <div class="hint">Choose what gets replaced with codes. Anything you turn off stays as written in the clean copies your agents read. Calls are still linked to the right client either way.</div>
+      <div class="switches">
+        ${[["people", "People's names", "C001"], ["companies", "Company names", "O001"], ["emails", "Email addresses", "C001-EMAIL"], ["phones", "Phone numbers", "C001-PHONE"]]
+          .map(([k, label, eg]) => `<label class="switch"><input type="checkbox" data-hide="${k}" ${S.hide[k] ? "checked" : ""}><span class="track"></span>
+            <span><b>${label}</b><span class="hint"> become ${eg}</span></span></label>`).join("")}
+      </div>
+      <div class="section"><h3>Names the cleaner isn't sure about</h3>
+        <label class="switch"><input type="checkbox" data-hold-unknown ${S.hold_unknown ? "checked" : ""} ${S.tutorial?.active ? "disabled" : ""}><span class="track"></span>
+          <span><b>Hold calls until I've answered every name</b><span class="hint" style="display:block">Off: unsure names are hidden as PERSON-1, COMPANY-1 and the call is ready straight away; you review them when it suits you. On: the call waits until each one is answered.</span></span></label></div>
+      <form class="section actions field-row" id="owner-form"><label style="flex:1;min-width:200px">Your name (always visible in your calls)<input name="name" value="${esc(S.owner_name || "")}" placeholder="Your full name" autocomplete="name" required></label><button class="btn" type="submit">Save</button></form>
+    </div>
+    <div class="card panel" id="team-card">
+      <h2>Your team</h2>
+      <div class="hint">Teammates and tools that are fine to show in every call, first names included. Share the list so everyone on your team skips the same names. Saved clients can't be added here.</div>
+      <div style="margin-top:10px">${(S.team || []).length
+        ? `<div class="pills">${S.team.map(n => `<span class="pill">${esc(n)}<button title="Remove ${esc(n)}" data-team-remove="${esc(n)}">&times;</button></span>`).join("")}</div>`
+        : '<span class="muted">No teammates yet.</span>'}</div>
+      <form class="actions" id="team-form" style="margin-top:8px"><input name="add" placeholder="Teammate's full name" style="width:220px" ${S.tutorial?.active ? "disabled" : ""}><button class="btn small" type="submit" ${S.tutorial?.active ? "disabled" : ""}>Add</button></form>
+      <div class="section"><h3>Share a team list</h3>
+        <div class="actions"><button class="btn" data-action="team-copy">Copy team list</button><button class="btn" data-action="team-open" ${S.tutorial?.active ? "disabled" : ""}>Paste or open a team list</button></div>
+        ${teamOpen ? `<textarea id="team-text" rows="6" style="margin-top:10px" placeholder="One name per line. Write tool: Name for a tool.">${esc(teamText)}</textarea>
+          <input type="file" id="team-picker" accept=".txt,.json,text/plain,application/json" hidden>
+          <div class="actions" style="margin-top:8px"><button class="btn small" data-action="team-file">Open a file</button><button class="btn small primary" data-action="team-preview">Preview</button><button class="btn small" data-action="team-close">Cancel</button></div>
+          ${teamRows ? teamPreviewHtml() : ""}` : ""}
+      </div>
+    </div>
+    <div class="card panel wide">
+      <h2>Your answers</h2>
+      <div class="hint">Everything you've told the cleaner. Remove one and every call is checked again, so anything affected comes back to Review names.</div>
+      <div class="answers">
+        <div><div class="tag">Fine to keep (never hidden)</div>${pills(S.answers.allow.filter(a => !teamNames().has(a.toLowerCase())), "allow", "None yet.")}
+          <form class="actions" id="allow-form" style="margin-top:8px"><input name="add" placeholder="Add a name" style="width:220px"><button class="btn small" type="submit">Add</button></form></div>
+        <div><div class="tag">People hidden as one-offs</div>${pills(S.answers.oneoff, "oneoff", "None.")}
+          <div class="tag" style="margin-top:14px">Companies hidden as one-offs</div>${pills(S.answers.oneoff_company, "oneoff_company", "None.")}</div>
+        <div><div class="tag">Who a first name meant, call by call</div>
+          ${S.answers.resolutions.length ? `<div class="mini-list">${S.answers.resolutions.map(r => `<div><span>"${esc(cap(r.name))}" in ${esc(r.file)} was <b>${r.value === "[PERSON]" ? "someone else" : esc(label(r.value))}</b></span>
+            <button class="btn small" data-forget="resolution" data-name="${esc(r.name)}" data-file="${esc(r.file)}">Change</button></div>`).join("")}</div>` : '<span class="muted">None.</span>'}</div>
+      </div>
+      <div class="hint" style="margin-top:12px">Clients you added from a question, and their nicknames, are edited on the Clients page.</div>
+    </div>
+    <div class="card panel">
+      <h2>Tools</h2>
+      <div class="tool-row"><div><b>Update all clean copies</b><div class="hint">Makes fresh clean copies from your untouched originals, so past calls follow every saved name, nickname and email. Safe to run any time.</div></div><button class="btn" data-action="reclean">Update</button></div>
+      <div class="tool-row"><div><b>Desktop shortcut</b><div class="hint">Open ${esc(S.brand.name)} with a double-click.</div></div><button class="btn" data-action="shortcut">Add to desktop</button></div>
+      ${S.tutorial?.active  // the tutorial counts as practice internally, so say plainly which one is running
+        ? '<div class="tool-row"><div><b>Practice</b><div class="hint">You\'re in the guided tutorial right now. It has one sample call of its own. The practice sample calls open when you leave it.</div></div><button class="btn" data-action="tutorial-to-practice">Leave the tutorial and open sample calls</button></div>'
+        : `<div class="tool-row"><div><b>Practice</b><div class="hint">Try everything on made-up sample calls.</div></div>${S.practice ? '<button class="btn" data-action="practice-off">Leave practice</button>' : '<button class="btn" data-action="practice-on">Try sample calls</button>'}</div>`}
+      <div class="tool-row"><div><b>Guided first call</b><div class="hint">Learn the actual tabs and controls with a sample. The book button in the top right opens it from any tab.</div></div><button class="btn" data-action="tutorial-start">${S.tutorial?.active?'Resume tutorial':'Start tutorial'}</button></div>
+    </div>
+    <div class="card panel">
+      <h2>How it works</h2>
+      <div class="hint">Your client list turns people into codes first. Microsoft Presidio (open source) then looks for names, emails and phone numbers your list doesn't know, and any name it isn't sure about is hidden as PERSON-1 or COMPANY-1 and listed in Review names. Names are hidden in file names too. No AI model is used, and nothing leaves this computer except what you choose to pull from Fathom.</div>
+    </div>
+  </div>`;
+}
+
+// ---------- events ----------
+document.getElementById("toast").addEventListener("mouseenter", () => clearTimeout(toast.t));
+document.getElementById("toast").addEventListener("mouseleave", () => { clearTimeout(toast.t); toast.t = setTimeout(hideToast, 4000); });
+document.addEventListener("click", async e => {
+  if (e.target.closest(".row a")) return;  // download buttons inside a row don't open the preview
+  const und = e.target.closest("[data-undo]");
+  if (und) return undoDecision(+und.dataset.undo);
+  const rn = e.target.closest("[data-rename]");
+  if (rn) { renaming = rn.dataset.rename; render(); const i = document.querySelector(".rename-form input"); if (i) { i.focus(); i.setSelectionRange(0, i.value.lastIndexOf(".") > 0 ? i.value.lastIndexOf(".") : i.value.length); } return; }
+  if (e.target.closest(".rename-form")) { if (e.target.closest('[data-action="rename-cancel"]')) { renaming = null; render(); } return; }
+  const rd = e.target.closest("[data-row-delete]");
+  if (rd) {
+    const file = rd.dataset.rowDelete;
+    if (!rd.dataset.confirm) { pendingDelete = file; return render(); }
+    pendingDelete = null;
+    return act(async () => { const r = await api("/api/delete-call", { file }); if (selCall === file) selCall = null; S = r.state; render(); toast(r.message); });
+  }
+  if (pendingDelete) { pendingDelete = null; render(); }
+  const w = e.target.closest("[data-who]");
+  if (w) { whoAs = w.dataset.who; try { localStorage.setItem("whoAs", whoAs); } catch (err) {} return render(); }
+  const fr = e.target.closest("[data-fathom-range]");
+  if (fr) return loadFathom({ range: fr.dataset.fathomRange }, fr.textContent.trim().toLowerCase());
+  if (t0(e, "sg-save") || t0(e, "sg-dismiss")) {
+    const save = !!t0(e, "sg-save"), list = (S.suggested_people || []).filter(s => sgRow(s).pick);
+    return act(async () => { const r = await api("/api/suggestions", save ? { save: list.map(s => ({ email: s.email, ...sgRow(s) })) } : { dismiss: list.map(s => s.email) });
+      list.forEach(s => sgEdits.delete(s.email)); take(r); toast(save ? `Saved ${plural(r.saved, "client")}. Your calls were checked again.` : "Removed from the list."); });
+  }
+  if (t0(e, "team-copy")) return api("/api/team-list", { action: "export" }).then(r => navigator.clipboard.writeText(r.text))
+    .then(() => toast("Copied. Paste it to your team; they paste it into Settings > Your team."), err => toast(err?.message || "Couldn't reach the clipboard."));
+  if (t0(e, "team-open")) { teamOpen = true; teamRows = null; render(); document.getElementById("team-text")?.focus(); return; }
+  if (t0(e, "team-close")) { teamOpen = false; teamText = ""; teamRows = null; return render(); }
+  if (t0(e, "team-file")) return document.getElementById("team-picker").click();
+  if (t0(e, "team-preview")) return teamPreview();
+  if (t0(e, "team-import")) return act(async () => { const r = await api("/api/team-list", { action: "import", text: teamText });
+    teamOpen = false; teamText = ""; teamRows = null; take(r); toast(r.message); });
+  if (t0(e, "restore-clear")) { restoreIn = ""; restoreOut = null; render(); document.getElementById("restore-in")?.focus(); return; }
+  if (t0(e, "restore-copy") || t0(e, "restore-copy-note")) {
+    if (t0(e, "restore-copy") && !restoreOut) { toast("Paste your agent's answer on the left first."); return; }
+    const text = t0(e, "restore-copy") ? (restoreOut || []).map(s => s.text).join("") : AGENT_NOTE;
+    navigator.clipboard.writeText(text).then(() => toast(t0(e, "restore-copy") ? "Copied with real names. Paste it where you're sending it." : "Copied. Paste it into your agent's instructions."),
+      () => toast("Couldn't reach the clipboard. Select the text and copy it instead."));
+    return;
+  }
+  if (t0(e, "bulk-open")) { bulkOpen = true; bulkRows = null; render(); document.getElementById("bulk-text")?.focus(); return; }
+  if (t0(e, "bulk-close")) { bulkOpen = false; bulkText = ""; bulkRows = null; return render(); }
+  if (t0(e, "bulk-file")) return document.getElementById("bulk-picker").click();
+  if (t0(e, "bulk-preview")) return bulkPreview();
+  if (t0(e, "bulk-save")) return act(async () => {
+    const rows = bulkRows.filter((r, i) => bulkPick.has(i)); const r = await api("/api/import-clients", { rows, save: true });
+    bulkOpen = false; bulkText = ""; bulkRows = null; take(r); toast(`Saved ${plural(r.saved, "client")}. Your calls were checked again.`); });
+  const rvo = e.target.closest("[data-rv-open]");
+  if (rvo) { const id = +rvo.dataset.rvOpen; rvOpen.has(id) ? rvOpen.delete(id) : rvOpen.add(id); return renderPinned(`[data-rv-open="${id}"]`); }
+  const rvq = e.target.closest("[data-rv-quick]");
+  if (rvq) return act(async () => { const g = reviewGroups().find(x => x.id === +rvq.dataset.rvId); if (!g) return;
+    const r = await api("/api/identity", { review_id: g.id, review_ids: g.group_ids, detected: g.name, file: g.file,
+      kind: g.kind === "company" ? "company" : "person", action: rvq.dataset.rvQuick });
+    take({ state: r.state }); toast({ tool: `${displayName(g.name)} is marked as a tool and stays visible in every call.`, keep: `${displayName(g.name)} stays visible in every call.`,
+      hide_always: `${displayName(g.name)} is hidden in every call.` }[rvq.dataset.rvQuick], r.undo); });
+  const rvh = e.target.closest("[data-rv-hide]");
+  if (rvh) { const ids = rvh.dataset.rvHide.split(",").map(Number).filter(Boolean);
+    if (ids.length > 3 && !confirm(`Keep these ${ids.length} names hidden? They stay hidden in your clean copies and leave this list.`)) return;
+    return act(async () => { const r = await api("/api/review-done", { ids }); take(r); if (r.undo) toast(r.undo.label + ".", r.undo); }); }
+  const rvt = e.target.closest("[data-rv-team]");
+  if (rvt) { const g = reviewGroups().find(x => x.id === +rvt.dataset.rvTeam); if (!g) return;
+    return act(async () => { const r = await api("/api/team", { add: displayName(g.name) }); take({ state: r.state }); toast(r.message, r.undo); }); }
+  const trm = e.target.closest("[data-team-remove]");
+  if (trm) return act(async () => { const r = await api("/api/team", { remove: trm.dataset.teamRemove }); take({ state: r.state }); toast(r.message, r.undo); });
+  const rvm = e.target.closest("[data-rv-me]");
+  if (rvm) { const g = reviewGroups().find(x => x.id === +rvm.dataset.rvMe); if (!g) return;
+    return act(async () => { const r = await api("/api/owner", { name: displayName(g.name) }); take({ state: r.state }); toast(r.message, r.undo); }); }
+  const fok = e.target.closest("[data-final-ok]");
+  if (fok) return act(async () => { const c = S.calls.find(x => x.file === selCall), item = finalCheck.items?.[+fok.dataset.finalOk];
+    if (!c || !item) return; const r = await api("/api/final-ok", { file: c.file, phrase: item.phrase });
+    finalCheck = { file: c.file, stamp: c.updated, items: r.items }; paintFinalCheck(c); if (r.undo) toast(r.undo.label + ".", r.undo); });
+  const more = e.target.closest("[data-ny-more]");
+  if (more) { const id = +more.dataset.nyMore; nyMore.has(id) ? nyMore.delete(id) : nyMore.add(id); return renderPinned(`[data-ny-more="${id}"]`); }
+  const t = e.target.closest("[data-view],[data-view-link],[data-call],[data-tab],[data-decide],[data-identity],[data-client],[data-company],[data-action],[data-unallow],[data-theme],[data-mode-set],[data-forget]");
+  if (!t) return;
+  if (t.dataset.modeSet) { S.mode = t.dataset.modeSet; renderNav(); return api("/api/mode", { mode: S.mode }).catch(e => toast(e.message)); }
+  if (t.dataset.theme !== undefined) return act(async () => { const r = await api("/api/theme", { use: t.dataset.theme }); S = r.state; reloadTheme(); render(); });
+  if (t.dataset.viewLink) { e.preventDefault(); view = t.dataset.viewLink; return render(); }
+  if (t.dataset.view) { view = t.dataset.view; return render(); }
+  if (t.dataset.call) { selCall = selCall === t.dataset.call ? null : t.dataset.call; callTab = "clean"; return render(); }
+  if (t.dataset.tab) { callTab = t.dataset.tab; return render(); }
+  if (t.dataset.decide) return act(async () => {
+    const g = reviewGroups().find(r => r.id === +t.dataset.decide), ids = selectedReviewIds(g);
+    if (!ids.length) throw new Error('Select at least one call.');
+    const r = await api('/api/decide-group', {ids, decision:t.dataset.value}); take({ state: r.state });
+    toast(r.undo ? r.undo.label + "." : summaryText(r.summary), r.undo); focusQuestion();
+  });
+  if (t.dataset.identity) {
+    const r = reviewGroups().find(r => r.id === +t.dataset.identity);
+    if (r) openIdentity(r, t.dataset.identityAction);
+    return;
+  }
+  if (t.dataset.client) { selClient = t.dataset.client; return render(); }
+  if (t.dataset.company) { selCompany = t.dataset.company; return render(); }
+  if (t.dataset.unallow) return act(async () => take(await api("/api/allow", { remove: t.dataset.unallow })));
+  if (t.dataset.forget) return act(async () => take(await api("/api/forget", { kind: t.dataset.forget, name: t.dataset.name, file: t.dataset.file || "" })));
+  const a = t.dataset.action;
+  if(a==='tutorial-start'||a==='tour-replay')return act(startGuide);
+  if(a==='tutorial-load')return act(async()=>{if(!S.tutorial?.active)await startGuide();S=(await api('/api/tutorial',{action:'load'})).state;pasting=false;guideOpen=true;guideNavigate();});
+  if(a==='guide-pause'){guideOpen=false;return renderGuide();}
+  if(a==='guide-goto'){guideOpen=true;return guideNavigate();}
+  if(a==='guide-exit')return act(()=>exitGuide());
+  if(a==='guide-show-company'||a==='guide-show-save'){
+    if(!S.tutorial?.active||S.tutorial.step!==1||!identityDraft)return;
+    guideReviewPart=a==='guide-show-company'?1:2;renderGuide();scrollGuideTarget();return;
+  }
+  if(a==='guide-restart-sample')return act(async()=>{await exitGuide();await startGuide();S=(await api('/api/tutorial',{action:'load'})).state;guideNavigate();});
+  if(a==='guide-reviewed')return act(async()=>{S=(await api('/api/tutorial',{action:'progress',reviewed:true})).state;render();});
+  if(a==='guide-back'||a==='guide-next')return act(async()=>{
+    if(a==='guide-next'&&!GUIDE[S.tutorial.step].done())return;
+    if(a==='guide-next'&&S.tutorial.step===GUIDE.length-1)return exitGuide(true);
+    S=(await api('/api/tutorial',{action:'progress',step:S.tutorial.step+(a==='guide-next'?1:-1)})).state;guideNavigate();
+  });
+  if (a === 'correct-change') {
+    const change = comparisonData?.changes[+t.dataset.change]; if (!change?.original) return;
+    const phrase = prompt('Confirm the exact phrase from the original you want to correct:', change.original.replace(/^[\s"'(\[]+|[\s"',.:;)\]]+$/g, ''));
+    if (phrase?.trim()) { openIdentity({file:selCall, name:phrase.trim(), kind:/\bO\d{3}/.test(change.replacement) ? 'company' : 'unknown', correction:true}); identityDraft.action = 'link_call'; render(); }
+    return;
+  }
+  if (a === "pick") document.getElementById("picker").click();
+  if (a === "new-client") { if (selClient !== "new") formDrafts.delete("client-form::new"); selClient = "new"; render(); }
+  if (a === "close-client") { const f = document.getElementById("client-form"); if (f) formDrafts.delete(draftKey(f)); skipDraftCapture = true; selClient = null; render(); }
+  if (a === "new-company") { if (selCompany !== "new") formDrafts.delete("company-form::new"); selCompany = "new"; render(); }
+  if (a === "close-company") { const f = document.getElementById("company-form"); if (f) formDrafts.delete(draftKey(f)); skipDraftCapture = true; selCompany = null; render(); }
+  if (a === "company-add-person" || a === "company-edit-person") {
+    companyPerson = { company_code: t.dataset.companyCode, client_code: a === "company-add-person" ? "new" : t.dataset.personCode };
+    render(); document.querySelector('#company-person-form [name=full_name]')?.focus();
+  }
+  if (a === "close-company-person") {
+    rememberDrafts(); const f = document.getElementById("company-person-form"); if (f) formDrafts.delete(draftKey(f));
+    companyPerson = null; skipDraftCapture = true; render();
+  }
+  if (a === "identity-close") { identityDraft = null; return render(); }
+  if (a === "tag-missed" && t.dataset.phrase) { openIdentity({ file: t.dataset.file, name: t.dataset.phrase, kind: "unknown" }); return; }
+  if (a === "tag-missed") {
+    const name = prompt("Enter the exact name or company phrase from the original call:", window.getSelection()?.toString().trim() || "");
+    if (name?.trim()) openIdentity({ file: t.dataset.file, name: name.trim(), kind: "unknown" });
+    return;
+  }
+  if (a === "output-open" || a === "private-open") return act(async () => { await api("/api/open-folder", { kind: a === "output-open" ? "output" : "private" }); if(S.tutorial?.active){S=await api('/api/state');render();} });
+  if (a === "approve-export") { const c = S.calls.find(x => x.file === t.dataset.file);
+    if (c && fcPending(c) && !confirm(`The final check found ${plural(fcPending(c), "thing")} you haven't answered. Approve and export this clean copy anyway?`)) return; }
+  if (a === "approve-export") return act(async () => { const r = await api("/api/approve-export", { file: t.dataset.file }); S = r.state; render(); toast(r.message); });
+  if (a === "reclean") act(async () => take(await api("/api/reclean", {})));
+  if (a === "pick-theme") document.getElementById("theme-picker").click();
+  if (a === "pick-logo") document.getElementById("logo-picker").click();
+  if (a === "close-call") { selCall = null; return render(); }
+  if (a === "delete-call") {
+    if (!confirm("Delete this call? Its original and clean copies go to the Recycle Bin, and its questions are removed.")) return;
+    return act(async () => { const r = await api("/api/delete-call", { file: t.dataset.file }); selCall = null; S = r.state; render(); toast(r.message); });
+  }
+  if (a === "vault-browse") return act(async () => {
+    if (!confirm("Pick a new folder for your private files (originals, client list, database). They'll move there, and the app will use them from the new place.")) return;
+    const r = await api("/api/vault", { browse: true }); S = r.state; render(); if (r.message) toast(r.message); });
+  if (a === "fathom-open") { pullSource = t.dataset.source || "fathom"; fathomOpen = true; fathomCalls = null; fathomSel = new Set(); view = "calls"; return render(); }
+  if (a === "fathom-close") { fathomOpen = false; return render(); }
+  if (a === "fathom-pull-selected") return act(async () => {
+    const r = await api(`/api/${pullSource}`, { pull_ids: [...fathomSel] }); S = r.state; fathomOpen = false; render();
+    toast(`Pulled ${plural(r.summary.pulled, "call")} from ${SOURCE_NAMES[pullSource]}. ` + summaryText(r.summary)
+      + (r.summary.suggested ? ` ${cap(plural(r.summary.suggested, "person", "people"))} from the invite can be saved as clients.` : "")); });
+  if (a === "fathom-clear") return act(async () => { const r = await api(`/api/${t.dataset.source || "fathom"}`, { clear: true }); S = r.state; render(); toast(r.message); });
+  if (a === "copy-clean") {
+    const r = await api(`/api/call?file=${encodeURIComponent(t.dataset.file)}&kind=clean`);
+    try { await navigator.clipboard.writeText(r.text); toast("Clean copy is on your clipboard. Paste it into ChatGPT, Claude or your agent."); }
+    catch (err) { toast("Couldn't reach the clipboard. Use Download clean instead."); }
+  }
+  if (a === "practice-on") act(async () => { selCall = null; view = "calls"; take(await api("/api/practice", { on: true })); });
+  if (a === "tutorial-to-practice") act(async () => { await exitGuide(); selCall = null; view = "calls";
+    take(await api("/api/practice", { on: true })); toast("You left the tutorial. These are the practice sample calls."); });
+  if (a === "practice-off") act(async () => { selCall = null; const r = await api("/api/practice", { on: false }); S = r.state; render(); toast("Back to your own calls."); });
+  if (a === "output-browse") act(async () => { const r = await api("/api/output", { browse: true }); S = r.state; render(); if (r.message) toast(r.message); });
+  if (a === "output-clear") act(async () => { const r = await api("/api/output", { path: "" }); S = r.state; render(); toast(r.message); });
+  if (a === "output-send-all") act(async () => { const r = await api("/api/output", { send_all: true }); S = r.state; render(); toast(r.message); });
+  if (a === "tour-skip" || a === "tour-done") endTour();
+  if (a === "tour-practice") { await endTour(); act(async () => { view = "calls"; take(await api("/api/practice", { on: true })); }); }
+  if (a === "reset-logo") act(async () => { logoDraft = null; const r = await api("/api/brand", { reset_logo: true }); S = r.state; render(); toast("Back to the original icon."); });
+  if (a === "paste-open") { pasting = true; pastedText = S.tutorial?.active ? S.tutorial.sample : ""; render(); document.getElementById("paste-text")?.focus(); }
+  if (a === "paste-close") { pasting = false; pastedText = ""; render(); }
+  if (a === "shortcut") act(async () => { const r = await api("/api/shortcut", {}); toast(r.message); });
+});
+async function loadFathom(win, label) {
+  await act(async () => {
+    const r = await api(`/api/${pullSource}`, { list: win });
+    fathomCalls = r.calls; fathomMore = r.more; fathomLabel = label;
+    fathomSel = new Set(r.calls.filter(c => !c.in_app).map(c => String(c.id)));  // ticked by default; untick what you don't want
+    render();
+  });
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && renaming) { renaming = null; render(); }
+  else if (e.key === "Escape" && identityDraft && (e.target === document.body || e.target.closest?.("#identity-form"))) { const id = identityDraft.review_id; identityDraft = null; render(); focusQuestion(id); }
+});
+// The layout scrolls inside the main panel; the window itself never should, or the sidebar slides away.
+addEventListener("scroll", () => { if (scrollY || scrollX) scrollTo(0, 0); });
+// Keep the clicked control where it was on screen when the view re-renders, so nothing jumps.
+function renderPinned(selector) {
+  const before = document.querySelector(selector)?.getBoundingClientRect().top;
+  render();
+  const el = document.querySelector(selector), main = document.getElementById("main");
+  if (el && before !== undefined) main.scrollTop += el.getBoundingClientRect().top - before;
+  el?.focus({ preventScroll: true });
+}
+// After an answer, put the keyboard on the next question's first choice (or the given one).
+function focusQuestion(id) {
+  if (view !== "review") return;
+  const card = (id && document.querySelector(`.rcard[data-q="${id}"]`)) || document.querySelector(".rcard");
+  card?.querySelector(".choice")?.focus({ preventScroll: true });
+}
+document.addEventListener("change", e => {
+  if (e.target.dataset.reviewPick) {
+    const id = +e.target.dataset.reviewPick, row = +e.target.dataset.reviewRow;
+    const g = reviewGroups().find(g => g.id === id);
+    if (!g) return;
+    const chosen = reviewSelections.get(id) || new Set(g.group_ids);
+    e.target.checked ? chosen.add(row) : chosen.delete(row); reviewSelections.set(id, chosen); return;
+  }
+  if (e.target.hasAttribute('data-export-review')) {
+    if (!e.target.checked && !confirm("Automatically export processed calls without a final review? Names or companies the detector misses could remain visible.")) { e.target.checked = true; return; }
+    return act(async () => take(await api('/api/export-review', { on: e.target.checked })));
+  }
+  if (e.target.closest('#identity-form')) {
+    const data = Object.fromEntries(new FormData(e.target.closest('form')));
+    Object.assign(identityDraft, data, { distinct: !!data.distinct });
+    if (e.target.name === "path") identityDraft.action = { save: identityDraft.correction ? "link_call" : "new", hide: "hide_call", keep: "keep" }[e.target.value];
+    if (["kind", "path", "action", "company_code", "code"].includes(e.target.name)) {
+      if (e.target.name === "kind") identityDraft.code = "";
+      const name = e.target.name;
+      render();
+      document.querySelector(`#identity-form [name="${name}"]${e.target.type === "radio" ? ":checked" : ""}`)?.focus({ preventScroll: true });
+    }
+    return;
+  }
+  if (e.target.dataset.sgPick !== undefined) { const m = e.target.dataset.sgPick, s = S.suggested_people.find(x => x.email === m);
+    sgEdits.set(m, { ...sgRow(s), pick: e.target.checked }); return render(); }
+  if (e.target.dataset.bulkPick !== undefined) { const i = +e.target.dataset.bulkPick; e.target.checked ? bulkPick.add(i) : bulkPick.delete(i); return render(); }
+  if (e.target.id === "team-picker" && e.target.files[0]) { const f = e.target.files[0];
+    if (f.size > 1024 * 1024) { toast("That file is too large for a team list."); return; }
+    f.text().then(txt => { teamText = txt; teamPreview(); }); return; }
+  if (e.target.id === "bulk-picker" && e.target.files[0]) { const f = e.target.files[0];
+    if (f.size > 5 * 1024 * 1024) { toast("That file is too large. Split it into smaller files."); return; }
+    f.text().then(txt => { bulkText = txt; render(); bulkPreview(); }); return; }
+  if (e.target.dataset.fathomPick) {
+    const id = e.target.dataset.fathomPick;
+    e.target.checked ? fathomSel.add(id) : fathomSel.delete(id);
+    const b = document.querySelector('[data-action="fathom-pull-selected"]');
+    if (b) { b.disabled = !fathomSel.size; b.textContent = fathomSel.size ? "Pull " + plural(fathomSel.size, "call") : "Pull selected calls"; }
+    return;
+  }
+  if (e.target.hasAttribute && e.target.hasAttribute("data-hold-unknown")) {
+    const on = e.target.checked;
+    if (on && !confirm("Hold calls until every unsure name is answered? Calls with unsure names will wait in Review names before they're usable.")) { e.target.checked = false; return; }
+    return act(async () => take(await api("/api/hold", { on })));
+  }
+  if (e.target.dataset.hide) {
+    const k = e.target.dataset.hide, on = e.target.checked;
+    const what = { people: "people's names", companies: "company names", emails: "email addresses", phones: "phone numbers" }[k];
+    if (!on && !confirm(`Turn this off and ${what} will stay as written in the clean copies your agents read. Every clean copy is updated. Continue?`)) {
+      e.target.checked = true; return;
+    }
+    return act(async () => take(await api("/api/hide", { [k]: on })));
+  }
+  if (e.target.id === "picker") uploadFiles([...e.target.files]);
+  if (e.target.id === "theme-picker") uploadTheme(e.target.files[0]);
+  if (e.target.id === "logo-picker" && e.target.files[0]) squareLogo(e.target.files[0])
+    .then(d => { const name = document.querySelector("#brand-form [name=name]")?.value; logoDraft = d; render();
+      if (name !== undefined) document.querySelector("#brand-form [name=name]").value = name; })
+    .catch(err => toast(err.message));
+  if (e.target.dataset.same && e.target.value) act(async () => take(await api("/api/decide", { id: +e.target.dataset.same, decision: e.target.value })));
+});
+document.addEventListener("input", e => {
+  if (e.target.dataset.sgField) { const m = e.target.dataset.sgEmail, s = S.suggested_people.find(x => x.email === m);
+    sgEdits.set(m, { ...sgRow(s), [e.target.dataset.sgField]: e.target.value }); return; }
+  if (e.target.id === "bulk-text") { bulkText = e.target.value; return; }
+  if (e.target.id === "restore-in") { restoreIn = e.target.value; clearTimeout(restoreTimer); restoreTimer = setTimeout(runRestore, 250); return; }
+  if (!e.target.closest('#identity-form') || !identityDraft) return;
+  if (e.target.id === 'identity-search') {
+    const query = e.target.value.toLowerCase();
+    for (const option of document.querySelectorAll('#identity-form [name=code] option')) option.hidden = !!option.value && !option.textContent.toLowerCase().includes(query);
+    return;
+  }
+  identityDraft[e.target.name] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+});
+document.addEventListener("submit", e => {
+  e.preventDefault();
+  const f = e.target, data = Object.fromEntries(new FormData(f));
+  if (f.id === "merge-form") {
+    if (!confirm(`Merge ${label(data.remove)} (${data.remove}) into ${label(f.dataset.keep)} (${f.dataset.keep})? Identifiers are combined, ${data.remove} is removed, and calls are checked again.`)) return;
+    return act(async () => { const r = await api('/api/merge', { keep: f.dataset.keep, remove: data.remove }); formDrafts.clear(); skipDraftCapture = true; take(r); });
+  }
+  if (f.id === "identity-form") return act(async () => {
+    const d = { ...identityDraft, ...data, distinct: !!data.distinct };
+    delete d.path; delete d.source; delete d.group_files;
+    if (['hide_call', 'link_call'].includes(d.action) && d.review_ids.length) {
+      d.review_ids = selectedReviewIds({id:d.review_id, group_ids:d.review_ids});
+      if (!d.review_ids.length) throw new Error('Select at least one call.');
+    }
+    if (d.company_code === "__new__") d.company_code = ""; else d.company_names = "";
+    const r = await api("/api/identity", d); identityDraft = null; take({ state: r.state }); toast(savedText(r.summary), r.undo); focusQuestion();
+  });
+  if (f.id === "client-form" || f.id === "company-person-form") act(async () => { const r = await api("/api/client", { ...data, code: f.dataset.code });
+    rememberDrafts(); formDrafts.delete(draftKey(f)); skipDraftCapture = true; S = r.state;
+    if (f.dataset.companyContext) { selCompany = f.dataset.companyContext; companyPerson = null; } else selClient = r.code;
+    render(); toast("Saved. Clean copies that mention them are updated."); });
+  if (f.id === "company-form") act(async () => { const r = await api("/api/company", { ...data, code: f.dataset.code });
+    rememberDrafts(); formDrafts.delete(draftKey(f)); skipDraftCapture = true; S = r.state; selCompany = r.code; render(); toast("Saved. Clean copies that mention them are updated."); });
+  if (f.id === "company-link-person") return act(async () => {
+    const p = client(data.person_code); if (!p || p.company_code) throw new Error("Choose a person who is not linked to a company.");
+    const r = await api("/api/client", { ...p, company_code: f.dataset.companyCode });
+    S = r.state; render(); toast("Person linked. Affected calls have been checked again.");
+  });
+  if (f.id === "allow-form") act(async () => take(await api("/api/allow", { add: data.add })));
+  if (f.id === "fathom-dates") return loadFathom({ range: "dates", from: data.from, to: data.to || data.from },
+    data.to && data.to !== data.from ? `${data.from} to ${data.to}` : data.from);
+  if (f.id === "team-form") return act(async () => { const r = await api("/api/team", { add: data.add }); take(r); toast(r.message); });
+  if (f.id === "owner-form") return act(async () => { const r = await api("/api/owner", { name: data.name }); take({ state: r.state }); toast(r.message, r.undo); });
+  if (f.id === "fathom-form" || f.id === "granola-form") act(async () => { const r = await api(`/api/${f.id.split("-")[0]}`, { key: data.key }); S = r.state; render(); toast(r.message); });
+  if (f.dataset.renameForm) {
+    const from = f.dataset.renameForm;
+    return act(async () => { const r = await api("/api/rename-call", { file: from, to: data.to });
+      if (selCall === from) selCall = r.file; renaming = null; S = r.state; render(); toast(r.message); });
+  }
+  if (f.id === "brand-form") act(async () => {
+    const r = await api("/api/brand", { name: data.name, ...(logoDraft ? { logo: logoDraft } : {}) });
+    logoDraft = null; S = r.state; render();
+    toast("Saved. If you made a desktop shortcut, add it again from Settings to pick up the new name and icon.");
+  });
+  if (f.id === "paste-form") {
+    let name = (data.name || pasteName()).trim();
+    if (!/\.(txt|md|vtt|srt)$/i.test(name)) name += ".txt";
+    if (!data.text.trim()) return toast("Paste a transcript first.");
+    act(async () => { const r = await api("/api/upload", { files: [{ name, text: data.text }] });
+      pasting = false; pastedText = ""; selCall = r.added_files?.[0] || name; take(r); });
+  }
+});
+// Ctrl+V anywhere on the Calls screen (outside a text box) opens the paste form with the text in it
+document.addEventListener("paste", e => {
+  if (view !== "calls" || e.target.closest("input, textarea")) return;
+  const text = e.clipboardData.getData("text/plain");
+  if (!text.trim()) return;
+  e.preventDefault();
+  pasting = true; pastedText = text; render();
+  toast("Pasted. Check the name, then click Clean it.");
+});
+// drag and drop anywhere on the window
+let depth = 0;
+window.addEventListener("dragenter", e => { e.preventDefault(); depth++; document.getElementById("drop")?.classList.add("over"); });
+window.addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; document.getElementById("drop")?.classList.remove("over"); } });
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", async e => {
+  e.preventDefault(); depth = 0; document.getElementById("drop")?.classList.remove("over");
+  const files = await filesFromDrop(e.dataTransfer);
+  if (view === "appearance") return uploadTheme(files[0]);
+  if (view !== "calls") { view = "calls"; render(); }
+  uploadFiles(files);
+});
+// heartbeat: the app stops itself a couple of minutes after this window closes
+setInterval(() => api("/api/ping", {}).catch(() => {}), 20000);
+// Closing the app window stops the app within a few seconds (a reload sends this too, and simply cancels it).
+addEventListener("pagehide", () => { try { navigator.sendBeacon(`/api/bye?t=${encodeURIComponent(TOKEN)}&p=${PAGE_ID}`, "{}"); } catch (e) {} });
+api("/api/ping", {}).catch(() => {});
+refresh().catch(e => { document.getElementById("main").innerHTML = `<div class="note bad">Couldn't start: ${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>
