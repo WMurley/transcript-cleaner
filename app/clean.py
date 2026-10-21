@@ -34,7 +34,7 @@ HERE = Path(__file__).resolve().parent
 # The vault (calls, clients, database) lives OUTSIDE the app folder, so an agent asked to
 # restyle or improve the app can never see a single call. An older vault inside the app
 # folder keeps working until it is moved.
-LEGACY_HOME = HERE / "ClientVault"
+LEGACY_HOME = HERE.parent / "ClientVault"
 DEFAULT_HOME = Path.home() / "TranscriptCleaner-Vault"
 
 
@@ -1423,7 +1423,7 @@ def move_vault(target):
     target = Path(target)
     if target.resolve() == HOME.resolve():
         raise ValueError("That's already where your files live.")
-    if HERE in target.resolve().parents or target.resolve() == HERE:
+    if HERE.parent in target.resolve().parents or target.resolve() == HERE.parent:  # nowhere inside the install folder
         raise ValueError("Pick a folder outside the app's own folder, so agents working on the app never see a call.")
     with _lock:
         con = connect()

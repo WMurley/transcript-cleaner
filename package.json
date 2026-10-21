@@ -1,7 +1,0 @@
-{
-  "name": "transcript-cleaner-dev-tests",
-  "private": true,
-  "type": "module",
-  "devDependencies": { "playwright-core": "1.62.1" },
-  "scripts": { "test:ui": "node test_identity_ui.mjs", "audit": "node audit.mjs" }
-}

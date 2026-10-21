@@ -6,7 +6,7 @@ It's made for client calls: one-to-one, or a handful of people. It isn't designe
 
 ## Is it safe?
 
-- **It runs only on your computer.** The cleaning happens on this machine, with no AI model involved. The app goes online only during setup and when you choose to pull calls from Fathom or Granola.
+- **It runs only on your computer.** The cleaning happens on this machine, with no AI model involved. The app goes online only during setup, when you choose to pull calls from Fathom or Granola, and when you click Check for updates.
 - **Your originals stay private.** The original transcripts and your client list are kept in a private folder that only this app reads. Your agents read a separate folder that holds only the clean copies.
 - **It's a safety net, not a guarantee.** It catches most names, but no tool catches everything. Read a clean copy before you share it. The app's final check points out anything that still looks like a name.
 
@@ -71,12 +71,14 @@ A code always means the same name in every call. The **Put names back** page has
 
 ## Updating
 
-Your calls, clients and settings live in a private folder in your home folder (TranscriptCleaner-Vault), not in the app folder, so updating never touches them. [SETUP.md](SETUP.md) has the steps and a prompt your agent can follow.
+In the app, go to **Settings**, find **Updates**, and click **Check for updates**. If there's a new version, click **Update now**, then **Restart now**. No new download, no setup and no warnings to click through. Your calls, clients and settings stay exactly as they are.
+
+Version 1.0 doesn't have the Updates card yet, so update it once by hand: [SETUP.md](SETUP.md) has the steps and a prompt your agent can follow.
 
 ## If something goes wrong
 
 - **Setup stopped?** Run it again: it picks up where it stopped. If it keeps stopping, give the **setup.log** file in the Transcript Cleaner folder to your AI agent. It never contains transcripts or client details, so it's safe to share.
-- **The app won't open?** Open it with **Open Transcript Cleaner (with console)** on Windows, or **Open Transcript Cleaner.command** on a Mac. Those show error messages you can give your agent.
+- **The app won't open?** Open the **app** folder inside Transcript Cleaner and double-click **Open Transcript Cleaner (with console)** on Windows, or **Open Transcript Cleaner.command** on a Mac. Those show error messages you can give your agent.
 
 ## License and credits
 
@@ -93,7 +95,7 @@ Transcript Cleaner is built on these open-source projects. Setup downloads them,
 | [PyObjC](https://github.com/ronaldoussoren/pyobjc) (Mac only) | connects the app window to the Mac | MIT |
 | [uv](https://github.com/astral-sh/uv) | the one-click setup | MIT or Apache-2.0 |
 
-Their own dependencies (listed in `requirements.lock`) are under permissive licenses too: MIT, BSD, Apache-2.0, ISC, PSF and MPL-2.0.
+Their own dependencies (listed in `app/requirements.lock`) are under permissive licenses too: MIT, BSD, Apache-2.0, ISC, PSF and MPL-2.0.
 
 The app's icons are drawn from [Feather](https://github.com/feathericons/feather) (MIT) and [Lucide](https://github.com/lucide-icons/lucide) (ISC). Their license notices are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 

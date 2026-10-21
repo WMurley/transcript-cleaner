@@ -32,16 +32,18 @@ import team
 import theme
 import identities
 import decisions
+import updater
 import comparison
 import uuid
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent  # the app's own files (this folder)
+ROOT = HERE.parent  # the install folder: Python (.venv), your look and logo, practice data, the Mac app
 TOKEN = secrets.token_urlsafe(24)
 REAL_HOME = clean.HOME
 # meeting apps the member can pull from; each keeps the details of its last list, so a pull fetches only what was ticked
 SOURCES = {"fathom": (fathom, "Fathom", fathom.FathomError), "granola": (granola, "Granola", granola.GranolaError)}
 PICKS = {name: {} for name in SOURCES}
-PRACTICE_HOME = HERE / "_practice"
+PRACTICE_HOME = ROOT / "_practice"
 TUTORIAL_SESSION = None
 TUTORIAL_CALL = 'guided-first-call.txt'
 TUTORIAL_SAMPLE = ('Morgan Reyes: Thanks for joining.\n'
@@ -241,6 +243,7 @@ def get_state():
     data = {
         "calls": calls, "clients": clients, "companies": companies, "review": review,
         "decisions": decisions.recent(con),
+        "version": updater.local_version(ROOT), "developer_copy": updater.is_developer_copy(ROOT),
         "next_codes": {"person": clean.next_code(con, "C"), "company": clean.next_code(con, "O")},
         "suggested_people": suggested_people,
         "allow": clean.get_list(con, "allow"),
@@ -277,7 +280,7 @@ def start_tutorial():
     if TUTORIAL_SESSION is not None:
         return
     suffix = uuid.uuid4().hex
-    home, exports = HERE / f'_tutorial-{suffix}', HERE / f'_tutorial-exports-{suffix}'
+    home, exports = ROOT / f'_tutorial-{suffix}', ROOT / f'_tutorial-exports-{suffix}'
     previous_home, previous_practice = clean.HOME, clean.PRACTICE
     fathom_connected = fathom.has_key()
     try:
@@ -315,7 +318,7 @@ def prune_tutorial_folders(max_age=6 * 3600):
     """Remove sample folders left by a tutorial that was closed partway through.
     Only folders older than max_age, so a second open copy of the app keeps its live tutorial."""
     cutoff = time.time() - max_age
-    for folder in HERE.glob('_tutorial-*'):
+    for folder in ROOT.glob('_tutorial-*'):
         if folder.is_dir() and re.fullmatch(r'_tutorial-(exports-)?[0-9a-f]{32}', folder.name) and folder.stat().st_mtime < cutoff:
             shutil.rmtree(folder, ignore_errors=True)
 
@@ -934,6 +937,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 summary = clean.reclean_all(terms)
                 return self.send(200, {"summary": summary, "state": get_state(),
                                        "message": f"Undone. {'It is back in Review names.' if row['action'] in ('keep', 'tool', 'hide_always', 'keep_hidden', 'which') else 'Your clean copies are updated.'}"})
+            elif path == "/api/update-check":  # goes online only because the person clicked Check for updates
+                return self.send(200, updater.check(ROOT))
+            elif path == "/api/update-apply":
+                try:
+                    result = updater.apply(ROOT)
+                except ValueError as e:
+                    return self.send(400, {"error": str(e)})
+                except Exception:
+                    return self.send(400, {"error": "The update couldn't be downloaded. Check your internet connection and try again. Nothing was changed."})
+                note = ""
+                if result["packages"]:
+                    ok, note = updater.install_packages(ROOT)
+                return self.send(200, {**result, "note": note,
+                                       "message": f"Updated to version {result['version']}. Restart to finish." + (f" {note}" if note else "")})
+            elif path == "/api/restart":  # after an update: open the new version, then close this one
+                if not (WINDOWED or NATIVE[0]):
+                    return self.send(400, {"error": "Close Transcript Cleaner and open it again to finish."})
+                updater.relaunch(ROOT)
+                threading.Timer(1.5, quit_app).start()
+                return self.send(200, {"ok": True})
             elif path == "/api/approve-export":
                 con = clean.connect()
                 try:
@@ -1236,7 +1259,7 @@ def mac_identity():
 def mac_finder_icon():
     """Give Transcript Cleaner.app (and so its desktop shortcut) the logo from Appearance in Finder.
     Setup calls this once; the app calls it again when the logo or look changes. Skipped when nothing changed."""
-    bundle = HERE / "Transcript Cleaner.app"
+    bundle = ROOT / "Transcript Cleaner.app"
     if sys.platform != "darwin" or not bundle.is_dir():
         return
     try:
@@ -1382,6 +1405,23 @@ def watchdog(server):
             return
 
 
+SERVER = [None]
+
+
+def quit_app():
+    """Close this copy after Restart now has opened the new version: closing the window stops the app as usual."""
+    if NATIVE[0]:
+        try:
+            import webview
+            for w in list(webview.windows):
+                w.destroy()
+            return
+        except Exception:
+            pass
+    if SERVER[0] is not None:
+        SERVER[0].shutdown()
+
+
 def warm_up():
     """Load the name model, then release calls an earlier version held for answers (unless strict mode is on)."""
     clean.get_analyzer()
@@ -1402,6 +1442,7 @@ def main():
     global PORT, ALLOWED_HOSTS, WINDOWED
     # Bind first: the OS reserves a unique port atomically, including parallel launches.
     server = LocalServer(("127.0.0.1", 0), Handler)
+    SERVER[0] = server
     PORT = server.server_address[1]
     ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
     clean.init()

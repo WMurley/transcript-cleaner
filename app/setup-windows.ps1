@@ -14,7 +14,7 @@ $ProgressPreference = "SilentlyContinue"   # PowerShell's progress bar makes dow
 
 $UvVersion = "0.12.23"   # pinned: a settled release, not the newest
 $PythonVersion = "3.13"
-$Lock = Join-Path $PSScriptRoot "..\requirements.lock"   # every package, the name model included, pinned to a checked file hash
+$Lock = Join-Path $PSScriptRoot "requirements.lock"   # every package, the name model included, pinned to a checked file hash
 
 $App = Split-Path -Parent $PSScriptRoot
 $Tools = Join-Path $App ".tools"
@@ -109,7 +109,7 @@ try {
     Say "4 of 4  Checking everything works..."
     Run $Py @("-c", "import presidio_analyzer, spacy, webview; spacy.load('en_core_web_lg'); print('Name model and app window load.')")
     if (-not $NoShortcut) {
-        Push-Location $App
+        Push-Location (Join-Path $App "app")
         $saved = $ErrorActionPreference; $ErrorActionPreference = "Continue"
         try { $msg = & $Py -c "import app; print(app.make_shortcut())" 2>&1 | ForEach-Object { "$_" } } finally { Pop-Location; $ErrorActionPreference = $saved }
         Say ("Desktop shortcut: {0}" -f ($msg | Out-String).Trim())
@@ -119,7 +119,7 @@ try {
     Write-Host "  All set. Open Transcript Cleaner from the shortcut on your desktop." -ForegroundColor Green
     Write-Host ""
     $open = if ($NoPrompt) { "n" } else { Read-Host "  Open it now? (Y/n)" }
-    if ($open -notmatch "^[nN]") { Start-Process -FilePath "wscript.exe" -ArgumentList ('"{0}"' -f (Join-Path $App "Open Transcript Cleaner.vbs")) }
+    if ($open -notmatch "^[nN]") { Start-Process -FilePath "wscript.exe" -ArgumentList ('"{0}"' -f (Join-Path $App "app\Open Transcript Cleaner.vbs")) }
     exit 0
 }
 catch {

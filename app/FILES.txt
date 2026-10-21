@@ -1,0 +1,40 @@
+.gitattributes
+.gitignore
+DEVELOPING.md
+LICENSE
+README.md
+SETUP.md
+Setup Transcript Cleaner (Mac).command
+Setup Transcript Cleaner (Windows).cmd
+THIRD-PARTY-NOTICES.md
+app/FILES.txt
+app/Open Transcript Cleaner (with console).cmd
+app/Open Transcript Cleaner.command
+app/Open Transcript Cleaner.vbs
+app/VERSION
+app/app.py
+app/clean.py
+app/comparison.py
+app/decisions.py
+app/fathom.py
+app/granola.py
+app/identities.py
+app/index.html
+app/intake.py
+app/keystore.py
+app/requirements.in
+app/requirements.lock
+app/restore.py
+app/samples/allow.txt
+app/samples/calls/fathom-2026-09-18-northgate-checkin.txt
+app/samples/calls/fathom-2026-09-22-harbor-lane.txt
+app/samples/calls/notes-2026-09-29-followups.md
+app/samples/calls/zoom-2026-09-14-bluefern-kickoff.txt
+app/samples/calls/zoom-2026-09-25-group-session.txt
+app/samples/clients.csv
+app/samples/companies.csv
+app/setup-windows.ps1
+app/team.py
+app/theme.py
+app/tutorial.js
+app/updater.py

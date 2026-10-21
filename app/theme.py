@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-THEMES = Path(os.environ.get("CLEANER_THEMES", HERE / "themes"))
+THEMES = Path(os.environ.get("CLEANER_THEMES", HERE.parent / "themes"))  # your look and logo, in the install folder
 ACTIVE = THEMES / "active.json"
 HEX = re.compile(r"#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b")
 SAFE_FONT = re.compile(r"^[A-Za-z0-9 .\-]{1,40}$")

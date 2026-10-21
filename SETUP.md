@@ -10,7 +10,7 @@ Open your agent in the Transcript Cleaner folder and paste this:
 
 ```
 Set up Transcript Cleaner in this folder by running its setup script, then confirm it worked.
-On Windows run: powershell -NoProfile -ExecutionPolicy Bypass -File setup\setup-windows.ps1
+On Windows run: powershell -NoProfile -ExecutionPolicy Bypass -File app\setup-windows.ps1
 On a Mac run: bash "Setup Transcript Cleaner (Mac).command"
 If it stops, read setup.log, fix the cause, and run the script again until it reports All set.
 Rules: install only through the setup script, which keeps everything inside this folder and checks
@@ -40,7 +40,9 @@ On macOS 14 or older, steps 2 to 4 are shorter: right-click the file, choose **O
 
 ## Updating to a new version
 
-Your calls, clients and settings live in the TranscriptCleaner-Vault folder in your home folder (or wherever you moved it in Settings, under Private storage), not in the Transcript Cleaner folder. Updating replaces the app folder and never touches them.
+**In the app (version 1.1 and later):** go to **Settings**, find **Updates**, and click **Check for updates**. If there's a new version, click **Update now**, then **Restart now**. Only the app's own files change: Python and its packages, your calls, clients, settings, look and practice data all stay as they are, and every file it replaces is backed up in the `.update` folder first. If an update needs new packages, it installs them itself, or tells you to run setup once more.
+
+**Version 1.0, or a fresh copy:** use one of the ways below. Your calls, clients and settings live in the TranscriptCleaner-Vault folder in your home folder (or wherever you moved it in Settings, under Private storage), not in the Transcript Cleaner folder. Updating replaces the app folder and never touches them.
 
 ### With your agent
 
@@ -52,7 +54,7 @@ The newest version is on this GitHub page: PASTE THE LINK HERE
 1. If Transcript Cleaner is open, ask me to close its window first, and wait.
 2. Rename the Transcript Cleaner folder by adding "-old" to the end of its name.
 3. Download the newest version from that page (the ZIP is the page link plus /archive/refs/heads/main.zip), unzip it here, and give the new folder the old folder's original name.
-4. In the new folder, run its setup script. On Windows: powershell -NoProfile -ExecutionPolicy Bypass -File setup\setup-windows.ps1. On a Mac: bash "Setup Transcript Cleaner (Mac).command". If it stops, read setup.log, fix the cause and run it again until it reports All set.
+4. In the new folder, run its setup script. On Windows: powershell -NoProfile -ExecutionPolicy Bypass -File app\setup-windows.ps1. On a Mac: bash "Setup Transcript Cleaner (Mac).command". If it stops, read setup.log, fix the cause and run it again until it reports All set.
 5. Open Transcript Cleaner from the desktop shortcut and check that it starts and shows my calls.
 6. Move the -old folder to the Trash or Recycle Bin.
 Rules: never open, read, move or delete my TranscriptCleaner-Vault folder or any transcript; install only through the setup script; don't change requirements.lock.
@@ -80,4 +82,4 @@ Run it again: it picks up where it stopped. If it keeps stopping, use the agent 
 | pywebview, the app's own window (uses Windows' WebView2 or Apple's WebKit) | a few MB | PyPI |
 | The English name model | about 400 MB | github.com/explosion/spacy-models |
 
-Every package and the name model are pinned in `requirements.lock` to an exact version and the fingerprint (hash) of the exact file that was checked. Setup refuses any file that doesn't match, so a changed or substituted download can't be installed. All of it lands in the `.tools` and `.venv` folders inside Transcript Cleaner. Nothing is added to your PATH or the Windows registry. After setup, the app runs entirely on your computer: the only time it goes online is when you choose to pull calls from Fathom or Granola.
+Every package and the name model are pinned in `app/requirements.lock` to an exact version and the fingerprint (hash) of the exact file that was checked. Setup refuses any file that doesn't match, so a changed or substituted download can't be installed. All of it lands in the `.tools` and `.venv` folders inside Transcript Cleaner. Nothing is added to your PATH or the Windows registry. After setup, the app runs entirely on your computer: the only time it goes online is when you choose to pull calls from Fathom or Granola.

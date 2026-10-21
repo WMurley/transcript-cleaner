@@ -648,7 +648,8 @@ function mergeForm(code, pool) {
 function renderNav() {
   const items = [
     ["calls", "Calls", S.calls.length, false, '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8"/>'],
-    ["review", "Review names", S.review.filter(r => r.kind !== "tool").length, !!S.hold_unknown && S.review.length > 0, '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>'],
+    // names, not rows: someone in two calls counts once, as in the Review names header and progress bar
+    ["review", "Review names", reviewGroups().filter(r => rvKind(r) !== "tool").length, !!S.hold_unknown && S.review.length > 0, '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>'],
     ["restore", "Put names back", null, false, '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'],
     ["decisions", "Recent decisions", null, false, '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'],
     ["clients", "Clients", S.clients.length, false, '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'],
@@ -1039,13 +1040,14 @@ function viewReview() {
       <p class="sub">${sorted.length ? `${cap(plural(sorted.length, "name"))} the cleaner wasn't sure about ${sorted.length === 1 ? "is" : "are"}` : "Names the cleaner isn't sure about are"} already hidden in your clean copies (as PERSON-1, COMPANY-1 and so on), so your calls are ready to use. Save the people who are clients so they get a lasting code, mark anything that's fine to show, and keep the rest hidden.</p></div>
       ${S.hold_unknown || !allIds.length ? "" : `<button class="btn" data-rv-hide="${allIds.join(",")}">Keep all ${words(sorted.length)} hidden</button>`}</div>
     ${ownerBox}
-    ${rvProgress(groups)}
+    ${rvProgress(sorted)}
     ${rows || `<div class="card rv-list"><div class="rv-row"><span class="hint">Nothing else to look at.</span></div></div>`}
     ${tools.length ? `<details class="card rv-once rv-tools"${rvToolsOpen || tools.some(r => rvOpen.has(r.id) || (identityDraft && identityDraft.review_id === r.id)) ? " open" : ""}><summary>${cap(plural(tools.length, "name"))} kept visible as AI tools: check none of them is a real person</summary>${tools.map(r => rvRow(r)).join("")}</details>` : ""}
   </div>`;
 }
 
 function rvKey(r) { return JSON.stringify([r.kind, r.name.toLowerCase(), r.candidates || ""]); }
+// Counts the same names as the header, the sidebar and "Keep all hidden": AI tools kept visible aren't included.
 function rvProgress(groups) {
   const now = new Set(groups.map(rvKey));
   now.forEach(k => rvSeen.add(k));
@@ -1371,6 +1373,36 @@ function renderTour() {
 async function endTour() { tourStep = -1; S.tour_done = true; renderTour(); await api("/api/tour", { done: true }).catch(() => {}); }
 
 // ---------- settings ----------
+// Updates: goes online only when clicked. upd = null | {busy} | the last check or update result
+let upd = null;
+function updatesCard() {
+  const r = upd || {};
+  let hint = "Get the newest version without downloading it again. Your calls, clients and settings stay as they are.";
+  let button = `<button class="btn" data-action="update-check">Check for updates</button>`;
+  if (S.developer_copy) { hint = "This is a developer copy (a git folder), so it updates with git, not from here."; button = ""; }
+  else if (r.busy) { hint = r.busy; button = ""; }
+  else if (r.updated) { hint = r.message; button = `<button class="btn primary" data-action="update-restart">Restart now</button>`; }
+  else if (r.available) { hint = `${r.message} Your calls, clients and settings stay as they are.`; button = `<button class="btn primary" data-action="update-apply">Update now</button>`; }
+  else if (r.message) { hint = r.message; }
+  return `<div class="card panel" id="updates"><h2>Updates</h2>
+      <div class="tool-row"><div><b>Version ${esc(S.version || "1.0.0")}</b><div class="hint">${esc(hint)}</div></div>${button}</div></div>`;
+}
+function paintUpdates() { const box = document.getElementById("updates"); if (box) box.outerHTML = updatesCard(); }
+async function updateAction(kind) {
+  if (kind === "check") {
+    upd = { busy: "Checking for a newer version..." }; paintUpdates();
+    try { upd = await api("/api/update-check", {}); } catch (e) { upd = { message: e.message }; }
+  } else if (kind === "apply") {
+    upd = { busy: "Updating. This can take a minute; don't close the app." }; paintUpdates();
+    try { const r = await api("/api/update-apply", {}); upd = { updated: true, message: r.message }; }
+    catch (e) { upd = { message: e.message }; }
+  } else if (kind === "restart") {
+    upd = { busy: "Restarting..." }; paintUpdates();
+    try { await api("/api/restart", {}); } catch (e) { upd = { updated: true, message: e.message }; }
+  }
+  paintUpdates();
+}
+
 function viewSettings() {
   const pills = (list, kind, empty) => list.length
     ? `<div class="pills">${list.map(a => `<span class="pill">${esc(a)}<button title="Remove" data-forget="${kind}" data-name="${esc(a)}">&times;</button></span>`).join("")}</div>`
@@ -1456,6 +1488,7 @@ function viewSettings() {
       </div>
       <div class="hint" style="margin-top:12px">Clients you added from a question, and their nicknames, are edited on the Clients page.</div>
     </div>
+    ${updatesCard()}
     <div class="card panel">
       <h2>Tools</h2>
       <div class="tool-row"><div><b>Update all clean copies</b><div class="hint">Makes fresh clean copies from your untouched originals, so past calls follow every saved name, nickname and email. Safe to run any time.</div></div><button class="btn" data-action="reclean">Update</button></div>
@@ -1619,6 +1652,9 @@ document.addEventListener("click", async e => {
     if (c && fcPending(c) && !confirm(`The final check found ${plural(fcPending(c), "thing")} you haven't answered. Approve and export this clean copy anyway?`)) return; }
   if (a === "approve-export") return act(async () => { const r = await api("/api/approve-export", { file: t.dataset.file }); S = r.state; render(); toast(r.message); });
   if (a === "reclean") act(async () => take(await api("/api/reclean", {})));
+  if (a === "update-check") return updateAction("check");
+  if (a === "update-apply") return updateAction("apply");
+  if (a === "update-restart") return updateAction("restart");
   if (a === "pick-theme") document.getElementById("theme-picker").click();
   if (a === "pick-logo") document.getElementById("logo-picker").click();
   if (a === "close-call") { selCall = null; return render(); }

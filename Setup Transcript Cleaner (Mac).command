@@ -12,7 +12,7 @@ APP="$(cd -- "$(dirname -- "$0")" && pwd)" || exit 1
 TOOLS="$APP/.tools"
 LOG="$APP/setup.log"
 PY="$APP/.venv/bin/python"
-LOCK="$APP/requirements.lock"   # every package, the name model included, pinned to a checked file hash
+LOCK="$APP/app/requirements.lock"   # every package, the name model included, pinned to a checked file hash
 STEP="starting"
 
 # uv keeps everything it fetches inside .tools and never touches PATH
@@ -80,7 +80,7 @@ fi
 STEP="checking the install"
 say "4 of 4  Checking everything works..."
 run "$PY" -c "import presidio_analyzer, spacy, webview; spacy.load('en_core_web_lg'); print('Name model and app window load.')" || stop
-chmod +x "$APP/Open Transcript Cleaner.command"
+chmod +x "$APP/app/Open Transcript Cleaner.command"
 
 # A small Mac app around the app's own Python, so the Dock shows "Transcript Cleaner", not "Python 3.13":
 # macOS names a running app after the package its program sits in. Links are relative, so renaming or moving
@@ -113,7 +113,7 @@ if [ ! -x "$CONTENTS/MacOS/app-python" ]; then
   osascript -e 'display dialog "Set up Transcript Cleaner first: double-click Setup Transcript Cleaner (Mac) in its folder." buttons {"OK"} default button 1' >/dev/null 2>&1
   exit 1
 fi
-case "${1:-}" in ""|--*) set -- "$APP/app.py" "$@" ;; esac   # a double-click (or app options) opens the app
+case "${1:-}" in ""|--*) set -- "$APP/app/app.py" "$@" ;; esac   # a double-click (or app options) opens the app
 exec "$CONTENTS/MacOS/app-python" "$@"
 LAUNCH
 chmod +x "$BUNDLE/Contents/MacOS/Transcript Cleaner"
@@ -121,7 +121,7 @@ ln -s "../../../.venv/bin/python" "$BUNDLE/Contents/MacOS/app-python" || stop
 cp "$APP/.venv/pyvenv.cfg" "$BUNDLE/Contents/pyvenv.cfg" || stop   # Python finds the app's packages through these two
 ln -s "../../.venv/lib" "$BUNDLE/Contents/lib" || stop
 # its logo in Finder and on the desktop shortcut (the app keeps it matching Appearance after this)
-"$PY" -c 'import sys; sys.path.insert(0, sys.argv[1]); import app; app.mac_finder_icon()' "$APP" >/dev/null 2>&1
+"$PY" -c 'import sys; sys.path.insert(0, sys.argv[1]); import app; app.mac_finder_icon()' "$APP/app" >/dev/null 2>&1
 
 # files unzipped from a download are marked as from the internet; clear that on this folder so the app opens
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null
